@@ -1,0 +1,98 @@
+---
+title: "Events"
+description: "A Unity sample demonstrating how to send player, title, and character events to PlayFab's PlayStream pipeline."
+---
+
+This sample demonstrates how to emit events from a Unity title to the PlayFab PlayStream pipeline. It covers the three main event scopes: **player events**, **title events**, and **character events**.
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Unity 2018.3+" icon="unity">
+    The project was created with Unity 2018.3 and requires that version or later.
+  </Card>
+  <Card title="Visual Studio 2017+" icon="code">
+    Visual Studio 2017 (Update 15.7) or later is required to build the project.
+  </Card>
+  <Card title="PlayFab title" icon="key">
+    A PlayFab title with currency and catalog data imported.
+  </Card>
+</CardGroup>
+
+## PlayFab configuration
+
+Before running the sample, import the bundled configuration files into your title via **Game Manager**:
+
+| Asset file | Import location |
+|------------|----------------|
+| `PlayFabEventsUnity_Currency.json` | Economy → Currency |
+| `PlayFabEventsUnity_Characters.json` | Economy → Catalogs |
+
+After import, update the Title ID in `Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset`.
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Unity">
+    In Unity Hub, click **Open** and navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/PlayFabEventsUnity
+    ```
+  </Step>
+  <Step title="Import the configuration assets">
+    In **Game Manager**, import `PlayFabEventsUnity_Currency.json` under **Economy → Currency** and `PlayFabEventsUnity_Characters.json` under **Economy → Catalogs**.
+  </Step>
+  <Step title="Set your Title ID">
+    Open `Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset` in the Unity Inspector and replace the placeholder **Title ID** with your own.
+  </Step>
+  <Step title="Open the sample scene and play">
+    Open the scene from `Assets/Scenes/`, then press **Play** in the Unity Editor.
+  </Step>
+</Steps>
+
+## Using the sample
+
+The sample displays a set of buttons, each mapped to a specific event type:
+
+1. Click any button to fire the corresponding event to PlayFab.
+2. Open **Game Manager → Analytics → PlayStream** to observe the event appear in real time.
+
+<Tip>
+Keep the PlayStream monitor open in a browser tab while you click buttons in the Unity editor. Events typically appear within a few seconds.
+</Tip>
+
+## Event scopes
+
+<AccordionGroup>
+  <Accordion title="Player events">
+    Scoped to a specific player. Use the `WritePlayerEvent` API. Ideal for tracking individual player actions such as level completion, item use, or quest progress.
+  </Accordion>
+  <Accordion title="Title events">
+    Scoped to the entire title rather than a single player. Use the `WriteTitleEvent` API. Useful for server-wide occurrences or administrative triggers.
+  </Accordion>
+  <Accordion title="Character events">
+    Scoped to a specific character owned by a player. Use the `WriteCharacterEvent` API. Requires at least one character to exist on the account, which is why the character catalog must be imported first.
+  </Accordion>
+</AccordionGroup>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="WritePlayerEvent" icon="user">
+    Sends a custom event associated with the logged-in player to the PlayStream pipeline.
+  </Card>
+  <Card title="WriteTitleEvent" icon="globe">
+    Sends a custom event associated with the title (not any specific player).
+  </Card>
+  <Card title="WriteCharacterEvent" icon="person-running">
+    Sends a custom event associated with a specific character belonging to a player.
+  </Card>
+  <Card title="PlayStream" icon="wave-square">
+    Real-time event pipeline in PlayFab that receives events, evaluates rules, and can trigger automation actions such as CloudScript execution or push notifications.
+  </Card>
+</CardGroup>

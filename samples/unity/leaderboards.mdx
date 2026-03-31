@@ -1,0 +1,144 @@
+---
+title: "Leaderboards"
+description: "A Unity sample demonstrating how to read and write lowest-score, high-score, and cumulative-score leaderboards using PlayFab and CloudScript."
+---
+
+This sample demonstrates reading from and writing to PlayFab leaderboards inside a Unity title. It covers three common leaderboard patterns: **lowest score / best time** (minimum aggregation), **high score** (maximum aggregation), and **cumulative score** (sum aggregation).
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Unity 2018.3+" icon="unity">
+    The project was created with Unity 2018.3 and requires that version or later.
+  </Card>
+  <Card title="Visual Studio 2017+" icon="code">
+    Visual Studio 2017 (Update 15.7) or later is required to build the project.
+  </Card>
+  <Card title="PlayFab title" icon="key">
+    A PlayFab title with the required leaderboards and CloudScript configured.
+  </Card>
+</CardGroup>
+
+## PlayFab configuration
+
+Complete all three steps before running the sample.
+
+### 1. Create the leaderboards
+
+In **Game Manager → Leaderboards**, create the following statistics:
+
+| Statistic name | Reset frequency | Aggregation method |
+|----------------|-----------------|--------------------|
+| `best_time` | Manually | Minimum |
+| `high_score` | Manually | Maximum |
+| `total_score` | Manually | Sum |
+
+### 2. Add the CloudScript
+
+Copy the contents of `cloudscript.js` into your title's Cloud Script editor (**Automation → CloudScript**):
+
+```javascript
+handlers.updateStatistic = function (args, context) {
+  var event = context.playStreamEvent;
+
+  if (event != null) {
+    var request = {
+      PlayFabId: currentPlayerId,
+      Statistics: [{
+        StatisticName: event.stat_name,
+        Value: event.value
+      }]
+    };
+
+    server.UpdatePlayerStatistics(request);
+  }
+};
+
+handlers.updateStatistics = function (args, context) {
+  var event = context.playStreamEvent;
+
+  if (event != null) {
+    var stats = event.stats;
+    var statArray = [];
+
+    for (var key in stats) {
+      var value = stats[key];
+      statArray.push({ StatisticName: key, Value: value });
+    }
+
+    var request = {
+      PlayFabId: currentPlayerId,
+      Statistics: statArray
+    };
+
+    server.UpdatePlayerStatistics(request);
+  }
+};
+```
+
+`updateStatistic` handles a single stat update from a PlayStream event. `updateStatistics` handles a batch update where multiple stats are passed in a single event payload.
+
+### 3. Create the automation rule
+
+In **Game Manager → Automation → Rules**, create one rule:
+
+| Field | Value |
+|-------|-------|
+| Name | `update_statistic` |
+| Event type | Custom Event — `update_statistic` |
+| Action | Execute Cloud Script |
+| Cloud Script function | `updateStatistic` |
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Unity">
+    In Unity Hub, click **Open** and navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/PlayFabLeaderboardsUnity
+    ```
+  </Step>
+  <Step title="Set your Title ID">
+    Open `Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset` in the Unity Inspector and replace the placeholder **Title ID** with your own.
+  </Step>
+  <Step title="Complete PlayFab configuration">
+    Create the three leaderboards, upload the CloudScript, and create the automation rule as described above.
+  </Step>
+  <Step title="Open the sample scene and play">
+    Open the scene from `Assets/Scenes/`, then press **Play** in the Unity Editor.
+  </Step>
+</Steps>
+
+## Using the sample
+
+The sample provides a simple UI for posting and reading leaderboard entries:
+
+- Use the **left / right arrows** to cycle between the three leaderboard types.
+- Enter a numeric value in the **Value** field, then press one of the **Post** buttons to submit that value as the corresponding score type.
+- Press **Refresh** to reload the latest leaderboard data. Switching leaderboards also triggers a refresh automatically.
+
+<Tip>
+Switching leaderboards automatically fetches fresh data, so you rarely need to press Refresh manually.
+</Tip>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="UpdatePlayerStatistics" icon="arrow-up">
+    Posts a new statistic value for the current player. The aggregation method configured on the leaderboard determines whether the value replaces or is combined with the existing value.
+  </Card>
+  <Card title="GetLeaderboard" icon="chart-bar">
+    Retrieves a ranked list of players and their statistic values for a given leaderboard.
+  </Card>
+  <Card title="CloudScript" icon="cloud">
+    Server-side JavaScript that runs in response to PlayStream events, used here to update player statistics securely on the server.
+  </Card>
+  <Card title="PlayStream automation rules" icon="bolt">
+    Links custom client events to CloudScript functions, keeping statistic writes off the client and reducing cheat surface area.
+  </Card>
+</CardGroup>

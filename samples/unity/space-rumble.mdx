@@ -1,0 +1,170 @@
+---
+title: "Space Rumble"
+description: "A Unity single-player mobile game sample showing user accounts, title data, event-driven CloudScript, and leaderboards."
+---
+
+Space Rumble is a single-player mobile game built in Unity that demonstrates how to integrate several core PlayFab services into a real game loop. Players fly through a space arena destroying enemy satellites; their performance stats are posted to PlayFab leaderboards via event-triggered CloudScript.
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Unity 2018.3.1f1+" icon="unity">
+    The project requires Unity 2018.3.1f1 or later.
+  </Card>
+  <Card title="Visual Studio 2017+" icon="code">
+    Visual Studio 2017 (Update 15.7) or later is required to build the project.
+  </Card>
+  <Card title="Android / iOS device" icon="mobile">
+    A physical or virtual device provides the best experience.
+  </Card>
+  <Card title="PlayFab title" icon="key">
+    The sample is pre-configured with Title ID **FACD** and works out of the box. Custom titles require additional configuration.
+  </Card>
+</CardGroup>
+
+## PlayFab configuration
+
+If you use your own PlayFab title instead of the default **FACD** title, configure the following resources in the PlayFab Game Manager.
+
+### Leaderboards
+
+Create the statistics below as **Manual** reset, **Sum** aggregation:
+
+| Statistic name | Reset | Aggregation |
+|----------------|-------|-------------|
+| `games_played` | Manual | Sum |
+| `satellite_hit` | Manual | Sum |
+| `satellites_destroyed` | Manual | Sum |
+| `total_damage` | Manual | Sum |
+| `total_round_time` | Manual | Sum |
+
+### Title Data
+
+| Key | Value |
+|-----|-------|
+| `MOTD` | A string displayed as the in-game Message of the Day |
+
+### CloudScript
+
+Add the following CloudScript to your title. The handlers read stat updates from PlayStream events and persist them to player statistics:
+
+```javascript
+handlers.updateStatistic = function (args, context) {
+  var event = context.playStreamEvent;
+
+  if (event != null) {
+    var request = {
+      PlayFabId: currentPlayerId,
+      Statistics: [{
+        StatisticName: event.stat_name,
+        Value: event.value
+      }]
+    };
+
+    server.UpdatePlayerStatistics(request);
+  }
+};
+
+handlers.updateStatistics = function (args, context) {
+  var event = context.playStreamEvent;
+
+  if (event != null) {
+    var stats = event.stats;
+    var statArray = [];
+
+    for (var key in stats) {
+      var value = stats[key];
+      statArray.push({ StatisticName: key, Value: value });
+    }
+
+    var request = {
+      PlayFabId: currentPlayerId,
+      Statistics: statArray
+    };
+
+    server.UpdatePlayerStatistics(request);
+  }
+};
+```
+
+### Automation rules
+
+Create two PlayStream automation rules to link client events to the CloudScript handlers:
+
+| Rule name | Event type | Action | CloudScript function |
+|-----------|-----------|--------|----------------------|
+| `update_statstic` | Custom Event — `update_statstic` | Execute Cloud Script | `updateStatistic` |
+| `update_statstics` | Custom Event — `update_statstics` | Execute Cloud Script | `updateStatistics` |
+
+<Note>
+The rule names intentionally match the event names emitted by the client, which contain the typos `statstic` / `statstics`. Use these exact strings when creating the rules.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Unity">
+    In Unity Hub, click **Open** and navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/SpaceRumble
+    ```
+  </Step>
+  <Step title="Configure PlayFab (optional)">
+    The project defaults to Title ID **FACD**. To use your own title, update the Title ID via the PlayFab Editor Extensions or in `PlayFabSharedSettings.asset`, then complete the PlayFab configuration steps above.
+  </Step>
+  <Step title="Open the sample scene">
+    Open the main scene from the `Assets/Scenes/` folder.
+  </Step>
+  <Step title="Build and run">
+    Build and deploy to an Android or iOS device, or press **Play** to test in the editor.
+  </Step>
+</Steps>
+
+## Using the sample
+
+After passing the welcome screen you are prompted to sign in (existing account, new account, or guest). Once signed in:
+
+- **Play** — fly around the space arena and destroy enemy satellites.
+- **Leaderboards** — view rankings for all tracked statistics.
+- **Options** — set a custom display name or clear saved sign-in information.
+
+## Code structure
+
+Scripts live in `Assets/Scripts/`, split into three groups:
+
+<AccordionGroup>
+  <Accordion title="Game scripts">
+    Core gameplay logic: spaceship movement, collision detection, satellite spawning, and round timing.
+  </Accordion>
+  <Accordion title="PlayFab scripts">
+    Handles authentication, reading Title Data and User Title Data, posting PlayStream events (`update_statstic`, `update_statstics`), and fetching leaderboard data.
+  </Accordion>
+  <Accordion title="UI scripts">
+    Manages the welcome screen, sign-in flow, main menu, leaderboard display, and options panel.
+  </Accordion>
+</AccordionGroup>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="User accounts" icon="user">
+    Email/password, guest, and remembered-session login using the PlayFab Auth APIs.
+  </Card>
+  <Card title="Title Data" icon="database">
+    Reads server-side key/value pairs (e.g., `MOTD`) to drive in-game content without a client update.
+  </Card>
+  <Card title="User Title Data" icon="sliders">
+    Stores per-player preferences and data dynamically created and updated from the client.
+  </Card>
+  <Card title="PlayStream events + CloudScript" icon="bolt">
+    Client fires custom events; automation rules route them to CloudScript handlers that update player statistics server-side.
+  </Card>
+  <Card title="Leaderboards" icon="chart-bar">
+    Displays ranked statistics for games played, hits, destroys, damage, and round time.
+  </Card>
+</CardGroup>

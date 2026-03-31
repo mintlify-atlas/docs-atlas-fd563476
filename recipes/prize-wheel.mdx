@@ -1,0 +1,159 @@
+---
+title: "Daily prize wheel"
+description: "Give players a randomized daily gift using PlayFab's regenerating Virtual Currency and a drop-table-backed bundle."
+---
+
+## Description
+
+A daily prize wheel gives players one spin per day in exchange for a Spin Ticket. Each spin awards a random prize drawn from a weighted drop table. Because Spin Tickets are backed by PlayFab's regenerating Virtual Currency, the rate of ticket accrual is fully server-controlled—players earn one ticket every 24 hours and can bank up to five at a time.
+
+From the player's perspective, they tap a button, watch the wheel spin, and receive a prize. The server handles the ticket deduction and prize selection atomically, so the outcome cannot be manipulated client-side.
+
+## How it works
+
+<Steps>
+  <Step title="Authenticate">
+    The client calls one of the PlayFab authentication methods (for example, `LoginWithCustomID`) to obtain a valid session ticket. A session ticket is required for all subsequent Client API calls.
+  </Step>
+  <Step title="Trigger a spin">
+    The client presents a spin button. When pressed, it calls `PurchaseItem` with `ItemId: "PrizeWheel1"`, `VirtualCurrency: "ST"`, and `Price: 1`.
+  </Step>
+  <Step title="PlayFab processes the purchase">
+    PlayFab atomically:
+    1. Deducts one Spin Ticket (ST) from the player's Virtual Currency balance.
+    2. Awards the `PrizeWheel1` bundle to the player's inventory.
+    3. Evaluates the bundle's drop table (`PrizeWheel1`) and grants the resulting item.
+    4. Returns the updated inventory and prize details to the client.
+  </Step>
+  <Step title="Display the result">
+    The client reads the `Items` array in the `PurchaseItem` response and displays the awarded prize to the player.
+  </Step>
+</Steps>
+
+<Note>
+  If the player has zero Spin Tickets, `PurchaseItem` returns an error. The client should display the time until the next ticket regenerates using the `VirtualCurrencyRechargeTimes` field returned by `GetUserInventory`.
+</Note>
+
+## PlayFab building blocks
+
+- **Accounts** — player authentication and session management
+- **Virtual Currency** — Spin Ticket (ST) with built-in recharge rate and cap
+- **Catalog** — the `PrizeWheel` catalog containing prize items and the bundle
+- **Drop Table** — weighted random prize selection (`PrizeWheel1`)
+- **Player Inventory** — item storage for awarded prizes
+
+## Setup
+
+<Steps>
+  <Step title="Create the Spin Ticket virtual currency">
+    In Game Manager, go to **Economy > Currencies** and select **New Currency**. Enter the following values:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | ST | Abbreviation for the Spin Ticket currency |
+    | Name | Spin Ticket | Display name of the currency |
+    | Initial Deposit | 1 | Ensures every new player can spin immediately |
+    | Recharge Rate | 1 | Regenerates 1 ticket per day |
+    | Recharge Max | 5 | Players can bank up to 5 tickets at a time |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Create the PrizeWheel catalog">
+    In Game Manager, go to **Economy > Catalogs** and create a new catalog named **PrizeWheel**.
+  </Step>
+  <Step title="Upload the drop table">
+    Inside the **PrizeWheel** catalog, navigate to the **Drop Tables** tab and upload `DropTable.json`. The drop table defines the weighted odds for each prize on the wheel.
+
+    ```json
+    [{
+      "TableId": "PrizeWheel1",
+      "Nodes": [
+        { "ResultItemType": "ItemId", "ResultItem": "Card1",     "Weight": 10000 },
+        { "ResultItemType": "ItemId", "ResultItem": "Card2",     "Weight": 10000 },
+        { "ResultItemType": "ItemId", "ResultItem": "Card3",     "Weight": 10000 },
+        { "ResultItemType": "ItemId", "ResultItem": "SpinAgain", "Weight": 303   }
+      ]
+    }]
+    ```
+
+    <Tip>
+      Adjust the `Weight` values to tune the probability of each outcome. A higher weight means a more common drop.
+    </Tip>
+  </Step>
+  <Step title="Upload the catalog items">
+    Return to the top-level catalogs view. Click the arrow on the **PrizeWheel** catalog card, choose **Upload JSON**, and provide `Catalog.json`. The catalog includes:
+
+    - `Card1`, `Card2`, `Card3` — the prize cards
+    - `SpinAgain` — a bundle that awards one free Spin Ticket (ST)
+    - `PrizeWheel1` — the purchasable bundle (costs 1 ST) that references the drop table
+  </Step>
+</Steps>
+
+## The CloudScript
+
+The prize wheel mechanic requires no CloudScript—the entire flow is driven by the Client API's `PurchaseItem` call. PlayFab handles the Virtual Currency deduction and bundle/drop-table evaluation server-side automatically.
+
+The JavaScript example calls `PurchaseItem` directly:
+
+```javascript
+function TryToSpin() {
+  console.log("Attempting to spin...");
+  var PurchaseItemRequest = {
+    "ItemId": "PrizeWheel1",
+    "VirtualCurrency": "ST",
+    "Price": 1
+  };
+  PlayFabClientSDK.PurchaseItem(PurchaseItemRequest, TryToSpinCallback);
+}
+
+function TryToSpinCallback(request, error) {
+  if (error) {
+    OutputError(error);
+  } else {
+    var result = request.data;
+    console.log("Ticket Accepted! SPINNING...");
+    console.log("SPIN RESULT: " + result.Items[1].DisplayName);
+    GetInventory(); // refresh displayed inventory and ticket count
+  }
+}
+```
+
+## Running the example
+
+<Tabs>
+  <Tab title="Unity 3D">
+    <Steps>
+      <Step title="Install the PlayFab Unity SDK">
+        Download and import the latest [PlayFab Unity SDK](https://github.com/PlayFab/UnitySDK/raw/versioned/Packages/UnitySDK.unitypackage) into a new or existing Unity project.
+      </Step>
+      <Step title="Import the recipe package">
+        Download and import [PrizeWheelRecipe.unitypackage](https://github.com/Myst0gan1/PlayFab-Samples/raw/master/Recipes/PrizeWheel/Example-Unity3d/PrizeWheelRecipe.unitypackage).
+      </Step>
+      <Step title="Open the scene">
+        In the **Project** window, open the **PrizeWheel** scene.
+      </Step>
+      <Step title="Set your title ID">
+        Select the `PrizeWheel` GameObject and set the **Title ID** field in the Inspector to your PlayFab title ID.
+      </Step>
+      <Step title="Run the scene">
+        Press **Play**. Watch the console for call-by-call status updates.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    <Steps>
+      <Step title="Copy the example folder">
+        Copy the `Example-JavaScipt` folder from this recipe to your web server.
+      </Step>
+      <Step title="Open index.html">
+        Navigate to `index.html` in your browser.
+      </Step>
+      <Step title="Enter your title ID">
+        Type your PlayFab title ID into the input field. The example generates a GUID as the player ID on first load and stores it in `localStorage` for subsequent visits.
+      </Step>
+      <Step title="Observe the console">
+        Open your browser's developer console to see call-by-call status updates as you spin.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

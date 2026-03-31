@@ -1,0 +1,51 @@
+---
+title: "Recipes overview"
+description: "Building-block patterns for common game mechanics implemented with PlayFab."
+---
+
+Recipes are self-contained reference implementations of familiar game mechanics. Each recipe demonstrates how to combine PlayFab's building blocks—Virtual Currency, Catalog, CloudScript, Player Data, and more—into a working end-to-end feature.
+
+Every recipe ships with:
+
+- A **Game Manager configuration guide** to set up the required PlayFab resources
+- A **CloudScript** file containing the authoritative server-side logic
+- A **Unity 3D** sample project
+- A **JavaScript** sample you can host on any web server
+
+## Categories
+
+### Player retention
+
+Mechanics that encourage players to return to your game regularly.
+
+<CardGroup cols={2}>
+  <Card title="Daily prize wheel" icon="circle-dot" href="/recipes/prize-wheel">
+    Give players a randomized daily gift in exchange for a Spin Ticket. Tickets regenerate automatically using PlayFab's Virtual Currency recharge system, ensuring players can spin at most once every 24 hours while banking up to five tickets.
+  </Card>
+  <Card title="Progressive rewards" icon="arrow-up-right" href="/recipes/progressive-rewards">
+    Reward players for logging in on consecutive days. A CloudScript handler tracks each player's login streak and grants escalating items at 2-, 5-, and 7-day milestones.
+  </Card>
+</CardGroup>
+
+### User acquisition
+
+Mechanics that bring new players into your game and reward both referrers and referees.
+
+<CardGroup cols={2}>
+  <Card title="Referral codes" icon="share-nodes" href="/recipes/referral-codes">
+    Let players share their unique referral code with friends. When the friend redeems the code, both the referrer and referee receive rewards. Each account can be referred only once, but a single player can refer up to ten others.
+  </Card>
+  <Card title="Cross-promotion" icon="arrows-left-right" href="/recipes/cross-promotion">
+    Reward players who play more than one of your titles. A shared Publisher Data record tracks which titles a player has visited, and each title can grant unique items when it detects cross-title activity.
+  </Card>
+</CardGroup>
+
+### Monetization
+
+Mechanics that drive in-game spending and create scarcity.
+
+<CardGroup cols={2}>
+  <Card title="Regenerating currency" icon="heart" href="/recipes/regenerating-currency">
+    A play-limiting mechanic (similar to Candy Crush lives) where a resource slowly refills over time up to a maximum value. Players can wait for regeneration or spend Gems to buy extra lives immediately.
+  </Card>
+</CardGroup>

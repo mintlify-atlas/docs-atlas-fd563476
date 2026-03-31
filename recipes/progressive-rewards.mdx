@@ -1,0 +1,232 @@
+---
+title: "Progressive rewards"
+description: "Reward players with escalating items as they build consecutive daily login streaks using CloudScript and Title Data."
+---
+
+## Description
+
+A progressive reward system encourages daily engagement by granting players increasingly valuable items as they log in on consecutive days. This example uses a three-tier reward table: players who reach 2-, 5-, and 7-day login streaks each receive a different item grant.
+
+All streak logic runs in CloudScript, which acts as the authoritative server. The client cannot manipulate streak counts or grant timing—everything is validated and written by the server.
+
+## How it works
+
+<Steps>
+  <Step title="Authenticate">
+    The client calls an authentication method (for example, `LoginWithCustomID`) to obtain a valid session ticket.
+  </Step>
+  <Step title="Call the CheckIn CloudScript">
+    Immediately after login the client calls `ExecuteCloudScript` with `FunctionName: "CheckIn"`.
+  </Step>
+  <Step title="CheckIn reads the player's tracker">
+    `CheckIn` calls `server.GetUserReadOnlyData` with the key `CheckInTracker` to retrieve the player's current streak length and the timestamp of their next eligible grant.
+
+    - If the key does not exist (first-ever login), a new tracker record is created, written back to PlayFab, and an empty result is returned with a message to log in tomorrow.
+  </Step>
+  <Step title="Validate streak eligibility">
+    The script checks three conditions:
+    - The current time is past `NextEligibleGrant` (at least one day has passed).
+    - The current time is less than `NextEligibleGrant + 1 day` (the player has not skipped a day, which would break the streak).
+
+    If the streak is broken, the tracker is reset and an empty result is returned.
+  </Step>
+  <Step title="Increment the streak and advance the grant window">
+    `LoginStreak` is incremented by 1. `NextEligibleGrant` is advanced by one day. The updated tracker is written back with `server.UpdateUserReadOnlyData`.
+  </Step>
+  <Step title="Look up the reward table">
+    `CheckIn` calls `server.GetTitleData` with the key `ProgressiveRewardTable` to retrieve the JSON reward table stored in Title Data.
+  </Step>
+  <Step title="Select and grant the reward">
+    The script iterates over the reward table entries. For each entry whose `MinStreak` threshold is at or below the player's current streak, the corresponding `Reward` item ID is selected. The highest-matching reward is then granted to the player via `server.GrantItemsToUser`.
+  </Step>
+  <Step title="Return results to the client">
+    The granted items array is serialized and returned to the client, which displays the reward to the player.
+  </Step>
+</Steps>
+
+<Note>
+  Testing tier 2 and tier 3 rewards without waiting requires using the Admin API to directly set the player's `CheckInTracker` data to a value that represents the appropriate streak length and next-grant timestamp.
+</Note>
+
+## PlayFab building blocks
+
+- **Accounts** — player authentication and session management
+- **Player ReadOnly Data** — per-player `CheckInTracker` storing streak length and next-grant timestamp
+- **Title Data** — `ProgressiveRewardTable` mapping streak thresholds to item IDs
+- **Catalog** — items to be granted as rewards
+- **Virtual Currency** — Gems (GM) used as an optional reward currency
+- **CloudScript** — `CheckIn` handler containing all streak and grant logic
+
+## Setup
+
+<Steps>
+  <Step title="Create the Gems virtual currency">
+    In Game Manager, go to **Economy > Currencies** and select **New Currency**. Enter:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | GM | Abbreviation for the Gems currency |
+    | Name | Gems | Display name |
+    | Initial Deposit | 5 | Starting balance for every new player |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Upload the catalog">
+    Go to **Economy > Catalogs** and select **Upload JSON**. Select `Catalog.json` from the `PlayFab-JSON` folder of this recipe.
+  </Step>
+  <Step title="Upload the title data">
+    In Game Manager, go to **Content > Title Data**. Under **Title Data**, select **Upload JSON** and provide `TitleData.json`. This file contains the `ProgressiveRewardTable` key that maps login streaks to item grants.
+  </Step>
+  <Step title="Upload the CloudScript">
+    Go to **Automation > Revisions**, select **Upload New Revision**, choose `CloudScript.js`, and select **Save as revision**.
+  </Step>
+</Steps>
+
+## The CloudScript
+
+The `CheckIn` handler is the core of this recipe. Key sections are annotated below.
+
+```javascript
+// Constants — change these to match your Title Data and ReadOnly Data keys
+var CHECK_IN_TRACKER = "CheckInTracker";
+var PROGRESSIVE_REWARD_TABLE = "ProgressiveRewardTable";
+var TRACKER_NEXT_GRANT = "NextEligibleGrant";
+var TRACKER_LOGIN_STREAK = "LoginStreak";
+
+handlers.CheckIn = function(args) {
+  // 1. Retrieve the player's existing tracker record
+  var GetUserReadOnlyDataResponse = server.GetUserReadOnlyData({
+    "PlayFabId": currentPlayerId,
+    "Keys": [CHECK_IN_TRACKER]
+  });
+
+  var tracker = {};
+  if (GetUserReadOnlyDataResponse.Data.hasOwnProperty(CHECK_IN_TRACKER)) {
+    tracker = JSON.parse(GetUserReadOnlyDataResponse.Data[CHECK_IN_TRACKER].Value);
+  } else {
+    // First login ever — create a fresh tracker and exit
+    tracker = ResetTracker();
+    UpdateTrackerData(tracker);
+    return JSON.stringify([]);
+  }
+
+  if (Date.now() > parseInt(tracker[TRACKER_NEXT_GRANT])) {
+    // 2. Check whether the streak was broken (more than 48 h since the last grant window)
+    var timeWindow = new Date(parseInt(tracker[TRACKER_NEXT_GRANT]));
+    timeWindow.setDate(timeWindow.getDate() + 1);
+
+    if (Date.now() > timeWindow.getTime()) {
+      tracker = ResetTracker();
+      UpdateTrackerData(tracker);
+      return JSON.stringify([]); // Streak broken
+    }
+
+    // 3. Increment streak and advance grant window
+    tracker[TRACKER_LOGIN_STREAK] += 1;
+    var dateObj = new Date(Date.now());
+    dateObj.setDate(dateObj.getDate() + 1);
+    tracker[TRACKER_NEXT_GRANT] = dateObj.getTime();
+    UpdateTrackerData(tracker);
+
+    // 4. Look up the reward table from Title Data
+    var GetTitleDataResult = server.GetTitleData({
+      "Keys": [PROGRESSIVE_REWARD_TABLE]
+    });
+
+    if (!GetTitleDataResult.Data.hasOwnProperty(PROGRESSIVE_REWARD_TABLE)) {
+      return JSON.stringify([]);
+    }
+
+    var rewardTable = JSON.parse(GetTitleDataResult.Data[PROGRESSIVE_REWARD_TABLE]);
+    var reward;
+
+    // 5. Select the highest-matching reward tier
+    for (var level in rewardTable) {
+      if (tracker[TRACKER_LOGIN_STREAK] >= rewardTable[level]["MinStreak"]) {
+        reward = rewardTable[level]["Reward"];
+      }
+    }
+
+    // 6. Grant and return the reward
+    if (reward) {
+      return JSON.stringify(GrantItems(reward, tracker[TRACKER_LOGIN_STREAK]));
+    }
+  }
+
+  return JSON.stringify([]);
+};
+```
+
+<Accordion title="Helper functions">
+
+```javascript
+function ResetTracker() {
+  var reset = {};
+  reset[TRACKER_LOGIN_STREAK] = 1;
+  var dateObj = new Date(Date.now());
+  dateObj.setDate(dateObj.getDate() + 1);
+  reset[TRACKER_NEXT_GRANT] = dateObj.getTime();
+  return JSON.stringify(reset);
+}
+
+function UpdateTrackerData(data) {
+  var req = {
+    "PlayFabId": currentPlayerId,
+    "Data": {}
+  };
+  req.Data[CHECK_IN_TRACKER] = JSON.stringify(data);
+  server.UpdateUserReadOnlyData(req);
+}
+
+function GrantItems(items, count) {
+  var parsed = Array.isArray(items) ? items : [items];
+  var result = server.GrantItemsToUser({
+    "PlayFabId": currentPlayerId,
+    "ItemIds": parsed,
+    "Annotation": "Granted for logging in over " + count + " consecutive days."
+  });
+  return JSON.stringify(result.ItemGrantResults);
+}
+```
+
+</Accordion>
+
+## Running the example
+
+<Tabs>
+  <Tab title="Unity 3D">
+    <Steps>
+      <Step title="Install the PlayFab Unity SDK">
+        Download the [PlayFab Unity 3D SDK](https://aka.ms/playfabunitysdkdownload) and import it into a new or existing Unity project.
+      </Step>
+      <Step title="Import the recipe package">
+        Import `ProgressiveRewardsRecipe.unitypackage` from the `Example-Unity3d` folder (or download it from the PlayFab-Samples GitHub repo).
+      </Step>
+      <Step title="Open the scene">
+        In the **Project** window, open **Assets > PlayFab Recipes > ProgressiveRewards > Scenes** and add the **ProgressiveReward** scene to your Hierarchy.
+      </Step>
+      <Step title="Set your title ID">
+        Select the **Main Camera** under the ProgressiveRewards scene. In the **Inspector**, set **Play Fab Title Id** to your PlayFab title ID.
+      </Step>
+      <Step title="Run the scene">
+        Press **Play**. Call-by-call status updates are displayed in the console.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    <Steps>
+      <Step title="Copy the example folder">
+        Copy the `Example-JavaScript` folder from this recipe to your web server.
+      </Step>
+      <Step title="Open index.html">
+        Navigate to `index.html` in your browser.
+      </Step>
+      <Step title="Enter your title ID">
+        Type your PlayFab title ID. The example auto-generates a GUID as the player ID and stores it in `localStorage`.
+      </Step>
+      <Step title="Observe the console">
+        Open your browser's developer console for call-by-call status updates.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

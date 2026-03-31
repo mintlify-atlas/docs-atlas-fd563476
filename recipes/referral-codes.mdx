@@ -1,0 +1,221 @@
+---
+title: "Referral codes"
+description: "Let players share referral codes with friends to earn rewards for both the referrer and the referee using CloudScript."
+---
+
+## Description
+
+Referral codes let existing players (referrers) share a unique code with friends (referees). When a new player redeems the code, both parties receive a reward. The mechanic enforces two important constraints:
+
+- Each player account can only be referred **once** (signified by a `ReferralBadge` inventory item).
+- A referrer can earn rewards for referring up to **10 players** (configurable via the `MAXIMUM_REFERRALS` constant in CloudScript).
+
+In this example the referee receives a **Premium Starter Pack** bundle and a permanent `ReferralBadge`. The referrer receives **10 Gems**.
+
+## How it works
+
+The flow involves two clients: **Client A** (referrer) and **Client B** (referee).
+
+<Steps>
+  <Step title="Client A authenticates">
+    Client A logs in via one of the PlayFab authentication methods to obtain a valid session ticket.
+  </Step>
+  <Step title="Client A shares their referral code">
+    The referral code is simply Client A's PlayFab ID (`currentPlayerId`). Client A reads this from the authentication response and shares it with Client B (for example, by copying it or sending it via a social channel).
+  </Step>
+  <Step title="Client B authenticates">
+    Client B downloads the game and logs in to obtain their own valid session ticket.
+  </Step>
+  <Step title="Client B enters and redeems the code">
+    Client B enters Client A's code and calls `ExecuteCloudScript` with `FunctionName: "RedeemReferral"` and `FunctionParameter: { referralCode: "<Client A's PlayFab ID>" }`.
+  </Step>
+  <Step title="RedeemReferral validates the request">
+    The CloudScript handler performs the following checks in order:
+    1. Confirms `args.referralCode` is present and non-empty.
+    2. Confirms the referral code is not the caller's own ID (self-referral is blocked).
+    3. Reads Client B's inventory to verify that no `ReferralBadge` item exists (each player can only be referred once).
+    4. Reads Client A's `Referrals` PlayerData key to confirm the code is valid and that the referrer has not yet hit the 10-referral limit.
+  </Step>
+  <Step title="Reward the referrer (Client A)">
+    If all checks pass, the script calls `ProcessReferrer`:
+    - Appends Client B's PlayFab ID to Client A's `Referrals` array and writes it back via `server.UpdateUserReadOnlyData`.
+    - Grants 10 Gems to Client A via `server.AddUserVirtualCurrency`.
+  </Step>
+  <Step title="Reward the referee (Client B)">
+    The script calls `GrantReferralBonus`, which uses `server.GrantItemsToUser` to grant both the `premiumStarterPack` bundle and the `referralBadge` item to Client B. The item annotation records who referred them.
+  </Step>
+  <Step title="Return results to Client B">
+    The granted items array is returned to Client B's game client to confirm the redemption.
+  </Step>
+</Steps>
+
+<Warning>
+  The `ReferralBadge` is the sole mechanism preventing double-redemption. Never remove it from a player's inventory unless you intentionally want to allow them to be referred again.
+</Warning>
+
+## PlayFab building blocks
+
+- **Accounts** — player authentication; the PlayFab ID doubles as the referral code
+- **Player Inventory** — `ReferralBadge` acts as a one-time redemption lock
+- **Player ReadOnly Data** — `Referrals` array on the referrer tracks who has been referred
+- **Virtual Currency** — Gems (GM) awarded to the referrer
+- **Catalog** — `premiumStarterPack` bundle and `referralBadge` item
+- **CloudScript** — `RedeemReferral` handler containing all validation and grant logic
+
+## Setup
+
+<Steps>
+  <Step title="Create the Gems virtual currency">
+    In Game Manager, go to **Economy > Currencies** and select **New Currency**. Enter:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | GM | Abbreviation for the Gems currency |
+    | Name | Gems | Display name |
+    | Initial Deposit | 5 | Starting balance for every new player |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Upload the catalog">
+    Go to **Economy > Catalogs** and select **Upload JSON**. Select `Catalog.json` from the `PlayFab-JSON` folder of this recipe. The catalog must include `premiumStarterPack` and `referralBadge` items.
+  </Step>
+  <Step title="Upload the CloudScript">
+    Go to **Automation > Revisions**, select **Upload New Revision**, choose `CloudScript.js`, and select **Save as revision**.
+  </Step>
+</Steps>
+
+## The CloudScript
+
+The `RedeemReferral` handler performs all validation and grants server-side.
+
+```javascript
+// Configuration constants
+var VIRTUAL_CURRENCY_CODE  = "GM";
+var PLAYER_REFERRAL_KEY    = "Referrals";
+var MAXIMUM_REFERRALS      = 10;
+var REFERRAL_BONUS_BUNDLE  = "premiumStarterPack";
+var REFERRAL_BADGE         = "referralBadge";
+
+handlers.RedeemReferral = function(args) {
+  try {
+    // Guard: referral code must be present and cannot be self
+    if (args == null || typeof args.referralCode === undefined || args.referralCode === "") {
+      throw "Failed to redeem. args.referralCode is undefined or blank.";
+    } else if (args.referralCode === currentPlayerId) {
+      throw "You are not allowed to refer yourself.";
+    }
+
+    // Guard: referee must not already have a ReferralBadge
+    var inventoryResult = server.GetUserInventory({ "PlayFabId": currentPlayerId });
+    for (var index in inventoryResult.Inventory) {
+      if (inventoryResult.Inventory[index].ItemId === REFERRAL_BADGE) {
+        throw "You are only allowed one Referral Badge.";
+      }
+    }
+
+    // Validate referral code and load referrer's existing referral list
+    var referrerDataResult = server.GetUserReadOnlyData({
+      "PlayFabId": args.referralCode,
+      "Keys": [PLAYER_REFERRAL_KEY]
+    });
+    var referralValues = [];
+
+    if (!referrerDataResult.Data.hasOwnProperty(PLAYER_REFERRAL_KEY)) {
+      // First redemption for this referrer
+      referralValues.push(currentPlayerId);
+      ProcessReferrer(args.referralCode, referralValues);
+    } else {
+      referralValues = JSON.parse(referrerDataResult.Data[PLAYER_REFERRAL_KEY].Value);
+      if (Array.isArray(referralValues)) {
+        if (referralValues.length < MAXIMUM_REFERRALS) {
+          referralValues.push(currentPlayerId);
+          ProcessReferrer(args.referralCode, referralValues);
+        } else {
+          // Referrer hit the limit — referee still gets their bonus
+          log.info("Referrer has hit the maximum referral limit.");
+        }
+      } else {
+        throw "An error occurred when parsing the referrer's player data.";
+      }
+    }
+
+    // Always reward the referee
+    return GrantReferralBonus(args.referralCode);
+
+  } catch(e) {
+    return { "errorDetails": "Error: " + e };
+  }
+};
+```
+
+<Accordion title="Helper functions">
+
+```javascript
+// Rewards the referrer: update their Referrals list and grant Gems
+function ProcessReferrer(id, referrals) {
+  var updateReq = {
+    "PlayFabId": id,
+    "Data": {}
+  };
+  updateReq.Data[PLAYER_REFERRAL_KEY] = JSON.stringify(referrals);
+  server.UpdateUserReadOnlyData(updateReq);
+
+  server.AddUserVirtualCurrency({
+    "PlayFabId": id,
+    "VirtualCurrency": VIRTUAL_CURRENCY_CODE,
+    "Amount": 10
+  });
+}
+
+// Grants the Premium Starter Pack and ReferralBadge to the referee
+function GrantReferralBonus(code) {
+  var result = server.GrantItemsToUser({
+    "PlayFabId": currentPlayerId,
+    "ItemIds": [REFERRAL_BADGE, REFERRAL_BONUS_BUNDLE],
+    "Annotation": "Referred by: " + code
+  });
+  return result.ItemGrantResults;
+}
+```
+
+</Accordion>
+
+## Running the example
+
+<Tabs>
+  <Tab title="Unity 3D">
+    <Steps>
+      <Step title="Install the PlayFab Unity SDK">
+        Download the [PlayFab Unity 3D SDK](https://aka.ms/playfabunitysdkdownload) and import it into a new or existing Unity project.
+      </Step>
+      <Step title="Import the recipe package">
+        Import `ReferralCodesRecipe.unitypackage` from the `Example-Unity3d` folder (or download it from the PlayFab-Samples GitHub repo).
+      </Step>
+      <Step title="Open the scene">
+        In the **Project** window, open **Assets > PlayFab Recipes > ReferralCodes > Scenes** and add the **ReferralCodes** scene to your Hierarchy.
+      </Step>
+      <Step title="Set your title ID">
+        Select the **Main Camera** under the ReferralCodes scene. In the **Inspector**, set **Play Fab Title Id** to your PlayFab title ID.
+      </Step>
+      <Step title="Run the scene">
+        Press **Play**. Call-by-call status updates are displayed in the console.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    <Steps>
+      <Step title="Copy the example folder">
+        Copy the `Example-JavaScript` folder from this recipe to your web server.
+      </Step>
+      <Step title="Open index.html">
+        Navigate to `index.html` in your browser.
+      </Step>
+      <Step title="Enter your title ID">
+        Type your PlayFab title ID. The example auto-generates a GUID as the player ID and stores it in `localStorage`.
+      </Step>
+      <Step title="Observe the console">
+        Open your browser's developer console for call-by-call status updates.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

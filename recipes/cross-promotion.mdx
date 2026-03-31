@@ -1,0 +1,214 @@
+---
+title: "Cross-promotion"
+description: "Reward players who play more than one of your titles using Player Publisher Data and CloudScript."
+---
+
+## Description
+
+In-game cross-promotion lets you reward players who have played more than one title in your studio's portfolio. When a player checks in to a title, CloudScript reads their **Publisher Data**—a data store shared across all titles under the same PlayFab publisher account—to discover which other titles they have visited. If the current title has a reward defined for any of those titles, the items are granted immediately.
+
+Each cross-title reward is granted only once per player per title pair, preventing duplicate grants on future logins.
+
+## How it works
+
+<Steps>
+  <Step title="Authenticate">
+    The client calls an authentication method (for example, `LoginWithCustomID`) to obtain a valid session ticket.
+  </Step>
+  <Step title="Call the CheckIn CloudScript">
+    Immediately after login the client calls `ExecuteCloudScript` with `FunctionName: "CheckIn"`.
+  </Step>
+  <Step title="CheckIn reads Publisher Data">
+    `CheckIn` calls `server.GetUserPublisherReadOnlyData` with the key `CrossPromotionalTracking`. This returns a JSON object whose keys are title IDs the player has previously visited and whose values contain a `Redeemed` array recording which cross-promotion rewards have already been granted.
+
+    If the key does not yet exist, an empty tracker is created in memory.
+  </Step>
+  <Step title="Record the current title visit">
+    If the current title ID (`CURRENT_TITLE_CODE`) is not already in the tracker, a new entry is created with an empty `Redeemed` array.
+  </Step>
+  <Step title="Load the reward table from Title Data">
+    `CheckIn` calls `server.GetTitleData` with the key `CrossPromotionalRewards` to retrieve the JSON map that links other title IDs to the items this title should grant.
+  </Step>
+  <Step title="Grant unredeemed cross-promotion rewards">
+    The script iterates over every title in the tracker. For each title that:
+    - Is not the current title, and
+    - Has not already been marked as redeemed in `trackedTitles[CURRENT_TITLE_CODE].Redeemed`, and
+    - Has a corresponding entry in the reward table
+
+    …items are granted via `server.GrantItemsToUser` from the `CrossPromotional` catalog. The title ID is then added to the `Redeemed` array so it is never granted again.
+  </Step>
+  <Step title="Write back updated tracking data">
+    The updated tracker is written back to Publisher Data via `server.UpdateUserPublisherReadOnlyData`, ensuring the same rewards are not re-granted on the player's next login.
+  </Step>
+  <Step title="Return results to the client">
+    The list of granted items is serialized and returned to the client.
+  </Step>
+</Steps>
+
+<Note>
+  To fully test this recipe you need at least two titles configured under the same PlayFab publisher account. Each title must have a matching CloudScript and a `TitleData > CrossPromotionalRewards` entry that references the other titles.
+</Note>
+
+## PlayFab building blocks
+
+- **Accounts** — player authentication and session management
+- **Player Publisher ReadOnly Data** — `CrossPromotionalTracking` shared across all titles under the publisher account
+- **Title Data** — `CrossPromotionalRewards` mapping other title IDs to item grants for this title
+- **Catalog** (`CrossPromotional`) — items to be granted as cross-promotion rewards
+- **Virtual Currency** — Gems (GM) used as reward currency
+- **CloudScript** — `CheckIn` handler containing all cross-title detection and grant logic
+
+## Setup
+
+<Steps>
+  <Step title="Create the Gems virtual currency">
+    In Game Manager, go to **Economy > Currencies** and select **New Currency**. Enter:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | GM | Abbreviation for the Gems currency |
+    | Name | Gems | Display name |
+    | Initial Deposit | 5 | Starting balance for every new player |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Upload the catalog">
+    Go to **Economy > Catalogs** and select **Upload JSON**. Select `Catalog.json` from the `PlayFab-JSON` folder of this recipe. Ensure the catalog version is named **CrossPromotional**.
+  </Step>
+  <Step title="Upload title data">
+    In Game Manager, go to **Content > Title Data**. Under **Title Data**, select **Upload JSON** and provide `TitleData.json`. This file defines the `CrossPromotionalRewards` key that maps other title IDs to the item IDs to grant.
+  </Step>
+  <Step title="Upload the CloudScript">
+    Go to **Automation > Revisions**, select **Upload New Revision**, choose `CloudScript.js`, and select **Save as revision**.
+  </Step>
+  <Step title="Repeat for each participating title">
+    Repeat steps 1–4 for every other title in your publisher portfolio that should participate in cross-promotion. Each title can define different rewards for each other title.
+  </Step>
+</Steps>
+
+## The CloudScript
+
+The `CheckIn` handler uses Publisher Data—shared across all of your titles—to detect cross-title play and grant rewards exactly once.
+
+```javascript
+// Configuration constants
+var CURRENT_TITLE_CODE           = "";                        // Set to this title's ID
+var CROSS_PROMOTIONAL_TRACKING   = "CrossPromotionalTracking"; // Publisher Data key
+var CROSS_PROMOTIONAL_REWARDS    = "CrossPromotionalRewards";  // Title Data key
+var CROSS_PROMOTIONAL_CATALOG    = "CrossPromotional";         // Catalog version for grants
+
+handlers.CheckIn = function(args) {
+  // 1. Load the player's cross-title visit history from Publisher Data
+  var pubDataResult = server.GetUserPublisherReadOnlyData({
+    "PlayFabId": currentPlayerId,
+    "Keys": [CROSS_PROMOTIONAL_TRACKING]
+  });
+
+  var trackedTitles = {};
+  if (pubDataResult.Data.hasOwnProperty(CROSS_PROMOTIONAL_TRACKING)) {
+    trackedTitles = JSON.parse(pubDataResult.Data[CROSS_PROMOTIONAL_TRACKING].Value);
+  }
+
+  // 2. Register this title if not already tracked
+  if (!trackedTitles.hasOwnProperty(CURRENT_TITLE_CODE)) {
+    trackedTitles[CURRENT_TITLE_CODE] = { "Redeemed": [] };
+  }
+
+  // 3. Load this title's cross-promotion reward table
+  var titleDataResult = server.GetTitleData({ "Keys": [CROSS_PROMOTIONAL_REWARDS] });
+  if (!titleDataResult.Data.hasOwnProperty(CROSS_PROMOTIONAL_REWARDS)) {
+    UpdatePromoTracking(trackedTitles);
+    return;
+  }
+
+  var rewardTable  = JSON.parse(titleDataResult.Data[CROSS_PROMOTIONAL_REWARDS]);
+  var grantedItems = [];
+
+  // 4. Check each tracked title for unredeemed rewards
+  for (var title in trackedTitles) {
+    if (title === CURRENT_TITLE_CODE) {
+      continue; // Don't reward players for the current title itself
+    }
+    if (trackedTitles[CURRENT_TITLE_CODE].Redeemed.indexOf(title) === -1) {
+      // Not yet redeemed for this title pair
+      if (rewardTable.hasOwnProperty(title)) {
+        var items = GrantItems(rewardTable[title], title);
+        if (items.length > 0) {
+          trackedTitles[CURRENT_TITLE_CODE].Redeemed.push(title);
+          grantedItems = grantedItems.concat(items);
+        }
+      }
+    }
+  }
+
+  // 5. Persist updated tracking data and return results
+  UpdatePromoTracking(trackedTitles);
+  return JSON.stringify(grantedItems);
+};
+```
+
+<Accordion title="Helper functions">
+
+```javascript
+function UpdatePromoTracking(data) {
+  var req = {
+    "PlayFabId": currentPlayerId,
+    "Data": {}
+  };
+  req.Data[CROSS_PROMOTIONAL_TRACKING] = JSON.stringify(data);
+  server.UpdateUserPublisherReadOnlyData(req);
+}
+
+function GrantItems(items, titleId) {
+  var parsed = Array.isArray(items) ? items : [items];
+  var result = server.GrantItemsToUser({
+    "CatalogVersion": CROSS_PROMOTIONAL_CATALOG,
+    "PlayFabId": currentPlayerId,
+    "ItemIds": parsed,
+    "Annotation": "Granted for logging into: " + titleId
+  });
+  return result.ItemGrantResults;
+}
+```
+
+</Accordion>
+
+## Running the example
+
+<Tabs>
+  <Tab title="Unity 3D">
+    <Steps>
+      <Step title="Install the PlayFab Unity SDK">
+        Download the [PlayFab Unity 3D SDK](https://aka.ms/playfabunitysdkdownload) and import it into a new or existing Unity project.
+      </Step>
+      <Step title="Import the recipe package">
+        Import `SimpleCrossPromotionRecipe.unitypackage` from the `Example-Unity3d` folder (or download it from the PlayFab-Samples GitHub repo).
+      </Step>
+      <Step title="Open the scene">
+        In the **Project** window, open **Assets > PlayFab Recipes > SimpleCrossPromotion > Scenes** and add the scene to your Hierarchy.
+      </Step>
+      <Step title="Set your title ID">
+        Select the **Main Camera**. In the **Inspector**, set **Play Fab Title Id** to your PlayFab title ID.
+      </Step>
+      <Step title="Run the scene">
+        Press **Play**. Call-by-call status updates are displayed in the console.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    <Steps>
+      <Step title="Copy the example folder">
+        Copy the `Example-JavaScript` folder from this recipe to your web server.
+      </Step>
+      <Step title="Open index.html">
+        Navigate to `index.html` in your browser.
+      </Step>
+      <Step title="Enter your title ID">
+        Type your PlayFab title ID. The example auto-generates a GUID as the player ID and stores it in `localStorage`.
+      </Step>
+      <Step title="Observe the console">
+        Open your browser's developer console for call-by-call status updates.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

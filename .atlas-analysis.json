@@ -1,0 +1,87 @@
+{
+  "projectType": "general",
+  "projectName": "PlayFab Samples",
+  "projectDescription": "A collection of sample code, recipes, and video tutorial projects demonstrating how to integrate PlayFab game services features such as authentication, leaderboards, economy, cloud scripting, and Azure Functions across Unity, C#, Android, and iOS platforms.",
+  "theme": "palm",
+  "primaryColor": "#646464",
+  "lightColor": "#f96f25",
+  "darkColor": "#f5bc8a",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Unity Samples",
+            "pages": [
+              "samples/unity/sign-in",
+              "samples/unity/space-rumble",
+              "samples/unity/leaderboards",
+              "samples/unity/events",
+              "samples/unity/commerce",
+              "samples/unity/tic-tac-toe"
+            ]
+          },
+          {
+            "group": "Azure Functions & C#",
+            "pages": [
+              "samples/csharp/tic-tac-toe-functions",
+              "samples/csharp/messaging-signalr"
+            ]
+          },
+          {
+            "group": "Recipes",
+            "pages": [
+              "recipes/overview",
+              "recipes/prize-wheel",
+              "recipes/progressive-rewards",
+              "recipes/referral-codes",
+              "recipes/regenerating-currency",
+              "recipes/cross-promotion"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing",
+              "code-of-conduct"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Authentication samples (email/password, guest, Google Sign-In) across Unity and mobile platforms",
+    "Leaderboard integration with PlayFab statistics and cloud script automation",
+    "PlayFab Economy: virtual currencies, catalogs, in-app purchases (Android/Unity)",
+    "Azure Functions integration with PlayFab CloudScript for server-side game logic",
+    "Player retention recipes: daily prize wheel, progressive login rewards, referral codes",
+    "SignalR real-time messaging with Azure Functions for matchmaking notifications",
+    "Cross-platform support: Unity, Android, iOS, C#, JavaScript"
+  ],
+  "publicApiSurface": [
+    "PlayFabClientAPI.LoginWithEmailAddress",
+    "PlayFabClientAPI.LoginWithCustomID",
+    "PlayFabClientAPI.ExecuteCloudScript (CheckIn, RedeemReferral, updateStatistic)",
+    "PlayFabClientAPI.GetLeaderboard / UpdatePlayerStatistics",
+    "PlayFabClientAPI.PurchaseItem / GetCatalogItems",
+    "Azure Function: MakePlayerMove",
+    "Azure Function: MakeRandomAIMove / MakeMinimaxAIMove",
+    "Azure Function: WinCheck",
+    "Azure Function: ResetGameState",
+    "Azure Function: GetSignalRConnection",
+    "Azure Function: PlayerLogin",
+    "Azure Function: SendChatMessage",
+    "CloudScript handler: updateStatistic / updateStatistics",
+    "CloudScript handler: CheckIn (ProgressiveRewards, CrossPromotion)",
+    "CloudScript handler: RedeemReferral"
+  ]
+}

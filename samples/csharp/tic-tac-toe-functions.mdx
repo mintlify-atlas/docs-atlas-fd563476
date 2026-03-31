@@ -1,0 +1,292 @@
+---
+title: "Tic Tac Toe Azure Functions"
+description: "Azure Functions app in C# that backs the Tic Tac Toe Unity sample, covering local setup, Azure deployment, PlayFab registration, and available functions."
+---
+
+## Overview
+
+This Azure Functions app is the server-side backend for the [Tic Tac Toe Unity sample](/samples/unity/tic-tac-toe). It handles all game logic that runs on the server: validating player moves, running AI move algorithms, checking win conditions, and resetting board state.
+
+Each function is a standalone HTTP-triggered Azure Function written in C#. The game client calls them through PlayFab's `ExecuteFunction` API, which routes the request to the registered URL. The functions use PlayFab Player Data to persist board state between turns.
+
+<CardGroup cols={2}>
+  <Card title="Unity Tic Tac Toe sample" icon="gamepad-2" href="/samples/unity/tic-tac-toe">
+    The companion Unity game that calls these Azure Functions through PlayFab.
+  </Card>
+  <Card title="Samples overview" icon="grid-2x2" href="/introduction">
+    Browse all available PlayFab samples.
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+- [.NET Core 2+](https://dotnet.microsoft.com/download)
+- [Azure Functions Core Tools](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local)
+- [VS Code](https://code.visualstudio.com/) or [Visual Studio](https://visualstudio.microsoft.com/) (VS Code recommended to follow this guide)
+- An Azure subscription (required for remote deployment)
+- A PlayFab title with the **Title ID** and **Developer Secret Key** on hand
+
+## Project dependencies
+
+The `.csproj` includes two NuGet packages:
+
+| Package | Purpose |
+|---|---|
+| [`PlayFabAllSDK`](https://www.nuget.org/packages/PlayFabAllSDK/) | Makes PlayFab API calls from within functions |
+| [`PlayFabCloudScriptPlugin`](https://www.nuget.org/packages/PlayFabCloudScriptPlugin/) | Provides `FunctionContext<T>` and helper types for deserializing the PlayFab payload |
+
+## Local setup
+
+<Steps>
+  <Step title="Open the project in VS Code">
+    Open VS Code and navigate to the following folder in the cloned repository:
+
+    ```
+    PlayFab-Samples/Samples/CSharp/AzureFunctions/TicTacToeFunctions
+    ```
+  </Step>
+
+  <Step title="Install required extensions">
+    Open the Extensions panel (`Ctrl+Shift+X`) and install:
+
+    1. [Azure Functions](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions)
+    2. [C#](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp)
+    3. [NuGet Package Manager](https://marketplace.visualstudio.com/items?itemName=jmrog.vscode-nuget-package-manager)
+  </Step>
+
+  <Step title="Configure the Azure Functions extension">
+    1. Open the Azure Extension (`Ctrl+Shift+A`) and sign in to Azure.
+    2. Click **Create new project...** in the Azure Functions extension toolbar.
+    3. Select the `TicTacToeFunctions` folder as your project directory.
+    4. Choose **C#** as the project language.
+    5. Choose **Skip for now** on the Function Template dropdown.
+
+    VS Code will initialize the folder and add `.vscode/`, `host.json`, `local.settings.json`, and the `.csproj` file.
+  </Step>
+
+  <Step title="Configure local.settings.json">
+    Open `local.settings.json` and add your PlayFab credentials under `Values`:
+
+    ```json local.settings.json
+    {
+        "IsEncrypted": false,
+        "Values": {
+            "AzureWebJobsStorage": "",
+            "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+            "PLAYFAB_TITLE_ID": "[title Id]",
+            "PLAYFAB_DEV_SECRET_KEY": "[secret key]"
+        }
+    }
+    ```
+
+    <Warning>
+      `PLAYFAB_TITLE_ID` and `PLAYFAB_DEV_SECRET_KEY` must be set or the functions will not execute successfully, either locally or on Azure.
+    </Warning>
+  </Step>
+
+  <Step title="Add NuGet packages">
+    1. Open the command palette (`Ctrl+Shift+P`), type **NuGet**, and select **NuGet Package Manager: Add Package**.
+    2. Search for `PlayFab`, select `PlayFabAllSDK`, and add the latest version.
+    3. Repeat to add `PlayFabCloudScriptPlugin`.
+    4. When prompted about unresolved dependencies, click **Restore**.
+  </Step>
+
+  <Step title="Build and run locally">
+    Build the project with `Ctrl+Shift+B` or run the following in the terminal:
+
+    ```bash
+    dotnet clean && dotnet build
+    ```
+
+    Press **F5** to start the Azure Functions runtime locally. Your functions will be hosted at:
+
+    ```
+    http://localhost:7071/api/[function name]
+    ```
+  </Step>
+</Steps>
+
+## Azure deployment
+
+<Steps>
+  <Step title="Create a Function App in the Azure Portal">
+    Go to the [Azure Portal](https://portal.azure.com), search for **Function App**, and click **Add**. Follow the prompts to create a new Function App. You may need to create a new Subscription and Resource Group.
+  </Step>
+
+  <Step title="Set Application Settings">
+    Once the app is created, navigate to its **Overview** page and click **Configuration**. Add two new application settings:
+
+    - `PLAYFAB_TITLE_ID` — your PlayFab Title ID
+    - `PLAYFAB_DEV_SECRET_KEY` — your PlayFab Developer Secret Key
+
+    <Tip>
+      You can also upload your local settings directly from VS Code: right-click **Application Settings** under your Function App in the Azure Extension, select **Upload Local Settings**, and choose your `local.settings.json` file. Settings that differ locally will overwrite remote values.
+    </Tip>
+  </Step>
+
+  <Step title="Deploy the functions">
+    In the Azure Functions extension (`Ctrl+Shift+A`), find the Function App you created, right-click it, and select **Deploy To Functions App**. Confirm the deployment when prompted.
+
+    You can also deploy via the [Azure Functions Core Tools CLI](https://github.com/Azure/azure-functions-core-tools) or the [Azure Functions and Web Jobs Tools](https://marketplace.visualstudio.com/items?itemName=VisualStudioWebandAzureTools.AzureFunctionsandWebJobsTools) for Visual Studio.
+  </Step>
+</Steps>
+
+## PlayFab setup
+
+The PlayFab configuration steps are covered in both this guide and the [Tic Tac Toe Unity sample](/samples/unity/tic-tac-toe). You only need to complete this setup once.
+
+<Steps>
+  <Step title="Create a PlayFab title">
+    Create a title named **TicTacToe** in the [PlayFab Game Manager](https://developer.playfab.com/). Note the **Title ID** and **Developer Secret Key** — you will need them in both the Unity game and this functions app.
+  </Step>
+
+  <Step title="Enable Azure Functions integration">
+    In Game Manager, navigate to **Automation → Cloud Script → Functions** and enable the integration.
+  </Step>
+
+  <Step title="Register your functions">
+    For each deployed function:
+
+    1. In the Azure Portal or VS Code extension, copy the function's invokable URL. Make sure the key is set to **default (Function key)**.
+       The URL format is: `[function-app-name].azurewebsites.net/api/[function-name]`
+    2. In Game Manager under **Automation → Cloud Script → Functions**, click **Register Function**.
+    3. Enter a name and the URL, then click **Register**.
+
+    Register all five functions from the `/Functions` folder: `MakePlayerMove`, `MakeRandomAIMove` or `MakeMinimaxAIMove` (register one as `MakeAIMove`), `WinCheck`, and `ResetGameState`.
+  </Step>
+</Steps>
+
+## Available functions
+
+<AccordionGroup>
+  <Accordion title="MakePlayerMove">
+    Validates a player's requested move and, if the target cell is unoccupied, applies it to the board state in PlayFab Player Data.
+
+    **Request model:** `MakePlayerMoveRequest` — contains `PlayFabId` and a `Move` with `row` and `col`.
+
+    **Response model:** `MakePlayerMoveResult` — contains a `Valid` boolean indicating whether the move was accepted.
+
+    ```csharp
+    // Move can only be made if spot was empty
+    if (state.Data[oneDimMoveIndex] == (int) OccupantType.NONE)
+    {
+        state.Data[oneDimMoveIndex] = (int) OccupantType.PLAYER;
+        await GameStateUtil.UpdateCurrentGameState(...);
+        return new MakePlayerMoveResult() { Valid = true };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="MakeRandomAIMove">
+    Selects a random unoccupied cell on the board as the AI's next move, stores it in Player Data, and returns the chosen `TicTacToeMove`.
+
+    Both AI move functions live in `MakeAIMove.cs`. Register one of them under the name `MakeAIMove` on PlayFab so the game client can call a single consistent name regardless of which algorithm backs it.
+  </Accordion>
+
+  <Accordion title="MakeMinimaxAIMove">
+    Selects the optimal AI move using the Minimax algorithm, stores it in Player Data, and returns the chosen `TicTacToeMove`.
+
+    Swap between `MakeRandomAIMove` and `MakeMinimaxAIMove` by updating the registered URL on PlayFab without changing the client code. See [Function registration URL flexibility](#function-registration-url-flexibility) below.
+  </Accordion>
+
+  <Accordion title="WinCheck">
+    Loads the current board state and checks whether any player has won or the board is full. If a winner is found, it updates the leaderboard, archives the game state to history, and clears the board.
+
+    **Response model:** `WinCheckResult` — contains a `Winner` field of type `GameWinnerType` (`NONE`, `PLAYER`, `AI`, or `DRAW`).
+  </Accordion>
+
+  <Accordion title="ResetGameState">
+    Clears the current board state for the player by writing a fresh empty `TicTacToeState` (9-element int array of zeros) to Player Data.
+  </Accordion>
+</AccordionGroup>
+
+## Important concepts
+
+### Function registration URL flexibility
+
+When registering a function with PlayFab you can choose any name — it does not have to match the actual function name in code. For example, you can register `MakeMinimaxAIMove`'s URL under the name `MakeAIMove` on PlayFab, and the game client calls `MakeAIMove`. To swap the AI algorithm, update the URL of the `MakeAIMove` registration to point to `MakeRandomAIMove` — no client rebuild required.
+
+<Warning>
+  When running functions **locally**, URLs are derived strictly from the function's code name (e.g., `http://localhost:7071/api/MakeMinimaxAIMove`). There is no local name-to-URL mapping. Either update the function name in the client to match the actual function name, or rename one of the local functions to match what the client is calling.
+</Warning>
+
+### Instance APIs vs. static APIs
+
+Use PlayFab **instance APIs** instead of static APIs inside Azure Functions. The `FunctionContext<T>` object from the CloudScript Plugin provides a `PlayFabAPISettings` and `PlayFabAuthenticationContext` for this purpose. Set the secret key on the settings object yourself before passing it to an instance API constructor.
+
+<Warning>
+  Static APIs share global state. When multiple function invocations run in parallel, one invocation can overwrite the settings of another, causing race conditions and unpredictable behavior. Instance APIs isolate each invocation.
+</Warning>
+
+### The PlayFab CloudScript Plugin and FunctionContext
+
+Add the plugin to every Azure Functions project that integrates with PlayFab. The plugin's `FunctionContext<T>.Create(req)` factory method deserializes the full PlayFab payload — including the caller's entity profile, player ID, API settings, and authentication context — into a strongly typed object.
+
+```csharp
+[FunctionName("MyFunction")]
+public static async Task<MyResult> Run(
+    [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
+    HttpRequestMessage req, ILogger log)
+{
+    var context = await FunctionContext<MyRequestType>.Create(req);
+    // context.FunctionArgument   → your typed request payload
+    // context.CallerEntityProfile → the calling player's entity profile
+    // context.ApiSettings         → PlayFab API settings
+    // context.AuthenticationContext → auth context for instance API calls
+}
+```
+
+Retrieve environment variables (Title ID, secret key) from Application Settings:
+
+```csharp
+PlayFabSettings.TitleId = Environment.GetEnvironmentVariable(
+    TITLE_ID_KEY,
+    EnvironmentVariableTarget.Process);
+```
+
+## Local debugging
+
+To redirect your game client's `ExecuteFunction` calls to your local functions runtime instead of PlayFab's servers:
+
+<Steps>
+  <Step title="Add the local ExecuteFunction shim">
+    Download the [`ExecuteFunction.cs`](https://github.com/PlayFab/pf-af-devfuncs/blob/master/csharp/ExecuteFunction.cs) Azure Function and place it in the `/Functions` folder alongside your other functions.
+
+    <Note>
+      Do not modify this function, do not deploy it to Azure, and do not check it into version control. It is a local-only development helper that mimics the PlayFab server's behavior of building the function payload.
+    </Note>
+  </Step>
+
+  <Step title="Create playfab.local.settings.json">
+    Create a file named `playfab.local.settings.json` in either the **game client root directory** or your OS **TEMP directory**:
+
+    ```json playfab.local.settings.json
+    {
+        "LocalApiServer": "http://localhost:7071/api/"
+    }
+    ```
+
+    The value must end with a trailing `/`. Update it if you change the default port or route prefix.
+  </Step>
+
+  <Step title="Configure host.json route prefix">
+    Edit `host.json` to explicitly declare the route prefix:
+
+    ```json host.json
+    {
+        "version": "2.0",
+        "extensions": {
+            "http": {
+                "routePrefix": "api"
+            }
+        }
+    }
+    ```
+
+    The `LocalApiServer` value in `playfab.local.settings.json` must match this prefix.
+  </Step>
+
+  <Step title="Run with F5">
+    Press **F5** in VS Code to start the local Azure Functions runtime. The game client will now route `ExecuteFunction` calls to `http://localhost:7071/api/` instead of PlayFab.
+  </Step>
+</Steps>

@@ -1,0 +1,100 @@
+---
+title: "PlayFab sign-in"
+description: "A Unity sample demonstrating email/password login, account creation, and guest sign-in with optional session persistence."
+---
+
+This sample demonstrates a simple PlayFab sign-in flow for Unity. Players can log in with an email and password, create a new account, or continue as a guest. Credentials can optionally be remembered across sessions.
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Unity 2018.3+" icon="unity">
+    The project was created with Unity 2018.3 and requires that version or later.
+  </Card>
+  <Card title="Visual Studio 2017+" icon="code">
+    Visual Studio 2017 (Update 15.7) or later is required to open and build the project.
+  </Card>
+  <Card title="Android / iOS device" icon="mobile">
+    A physical or virtual Android/iOS device provides the best experience.
+  </Card>
+  <Card title="PlayFab title ID" icon="key">
+    A valid PlayFab Title ID must be configured before running the sample.
+  </Card>
+</CardGroup>
+
+## PlayFab configuration
+
+Before running the sample you must supply your PlayFab Title ID. You can do this in one of two ways:
+
+- Use the **PlayFab Editor Extensions** for Unity, or
+- Open `Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset` in the Unity Inspector and set the **Title ID** field directly.
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Unity">
+    In Unity Hub, click **Open** and navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/PlayFabSignIn
+    ```
+  </Step>
+  <Step title="Configure your Title ID">
+    Either use the PlayFab Editor Extensions panel, or set the Title ID directly in `Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset`.
+  </Step>
+  <Step title="Open the sample scene">
+    In the **Project** window, open the scene located in `Assets/Scenes/`.
+  </Step>
+  <Step title="Enter Play mode">
+    Press **Play** in the Unity Editor. A sign-in dialog appears. Use an existing account, create a new one, or sign in as a guest.
+  </Step>
+</Steps>
+
+## Using the sample
+
+After launch you are prompted to sign in. The available options are:
+
+- **Email / password login** — authenticate with an existing PlayFab account.
+- **Create account** — register a new account with an email and password.
+- **Guest login** — sign in anonymously without credentials.
+- **Remember me** — persist sign-in info so the dialog is skipped on the next run.
+
+Once signed in, you can clear sign-in data or the remembered session from the post-login screen.
+
+## Code structure
+
+All scripts live in `Assets/Scripts/`, split into two sub-folders:
+
+<AccordionGroup>
+  <Accordion title="PlayFab/ — authentication logic">
+    | File | Responsibility |
+    |------|---------------|
+    | `PlayFabAuthService.cs` | Encapsulates all PlayFab authentication calls: anonymous login, email/password login, account registration, and session-token persistence. |
+  </Accordion>
+  <Accordion title="UI/ — interface layer">
+    | File | Responsibility |
+    |------|---------------|
+    | `LoginWindowView.cs` | Drives the sign-in dialog, binds UI events to `PlayFabAuthService`, and manages the "remember me" toggle state. |
+  </Accordion>
+</AccordionGroup>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="LoginWithEmailAddress" icon="envelope">
+    Authenticates a returning player using their email and password.
+  </Card>
+  <Card title="RegisterPlayFabUser" icon="user-plus">
+    Creates a new account with email, password, and optional display name.
+  </Card>
+  <Card title="LoginWithCustomID" icon="fingerprint">
+    Provides anonymous guest login via a device-generated custom ID.
+  </Card>
+  <Card title="Session persistence" icon="floppy-disk">
+    Saves the session ticket locally so players are not prompted again on subsequent runs.
+  </Card>
+</CardGroup>

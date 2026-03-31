@@ -1,0 +1,193 @@
+---
+title: "Regenerating currency"
+description: "A play-limiting mechanic where a resource slowly refills over time, implemented with PlayFab's Virtual Currency recharge and CloudScript."
+---
+
+## Description
+
+A regenerating currency system limits how much a player can play in a given time window, similar to the lives or hearts mechanic in many mobile games. In this example, **Lives** (LV) deplete during combat and regenerate at a rate of one life every five minutes, up to a maximum of five. Players who run out of lives must either wait or spend **Gems** (GM) to purchase additional lives immediately.
+
+All game logic—including the outcome of battles, life deductions, and Gem grants—runs in CloudScript. This prevents clients from faking results or bypassing the life check.
+
+## How it works
+
+<Steps>
+  <Step title="Authenticate">
+    The client calls an authentication method (for example, `LoginWithCustomID`) to obtain a valid session ticket.
+  </Step>
+  <Step title="Trigger a battle">
+    The client calls `ExecuteCloudScript` with `FunctionName: "Battle"` to simulate gameplay.
+  </Step>
+  <Step title="Battle checks for available lives">
+    The `Battle` CloudScript handler calls `server.GetUserInventory` to retrieve the player's current Virtual Currency balances and recharge times. If the player has zero Lives, the function throws an error that includes the number of seconds until the next life regenerates.
+  </Step>
+  <Step title="Calculate battle results">
+    If the player has at least one Life, the script:
+    - Generates a random Gem reward between `GEM_MIN` (10) and `GEM_MAX` (20) and credits it via `server.AddUserVirtualCurrency`.
+    - Rolls a random number to determine if the player loses a Life (`CHANCE_TO_DIE = 0.3333`). If so, one Life is deducted via `server.SubtractUserVirtualCurrency`.
+  </Step>
+  <Step title="Return results to the client">
+    The script returns a result object containing `gemsFound` and `lostALife` so the client can update the player's display.
+  </Step>
+  <Step title="Lives regenerate passively">
+    PlayFab's built-in Virtual Currency recharge mechanism automatically adds Lives back over time (one every five minutes) up to the configured `Recharge Max` of 5, without any additional server calls.
+  </Step>
+</Steps>
+
+<Tip>
+  Players can spend Gems to purchase lives directly from the catalog using the standard `PurchaseItem` Client API call—no additional CloudScript is required for that flow.
+</Tip>
+
+## PlayFab building blocks
+
+- **Accounts** — player authentication and session management
+- **Virtual Currency (LV)** — Lives, the play-limiting resource; configured with a recharge rate and cap
+- **Virtual Currency (GM)** — Gems, the premium currency awarded during battles and used to buy lives
+- **Catalog** — purchasable life items priced in Gems
+- **CloudScript** — `Battle` handler enforcing life checks and calculating outcomes
+
+## Setup
+
+<Steps>
+  <Step title="Create the Lives virtual currency">
+    In Game Manager, go to **Economy > Currencies** and select **New Currency**. Enter:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | LV | Abbreviation for the Lives currency |
+    | Name | Lives | Display name |
+    | Initial Deposit | 1 | Players start with one life |
+    | Recharge Rate | 288 | Recharges once every 5 minutes (24 hr × 60 min ÷ 5 min = 288 units/day) |
+    | Recharge Max | 5 | Maximum lives a player can hold |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Create the Gems virtual currency">
+    Select **New Currency** again and enter:
+
+    | Property | Value | Detail |
+    |---|---|---|
+    | Code | GM | Abbreviation for the Gems currency |
+    | Name | Gems | Display name |
+    | Initial Deposit | 5 | Starting balance for every new player |
+
+    Select **Save Currency**.
+  </Step>
+  <Step title="Upload the catalog">
+    Go to **Economy > Catalogs** and select **Upload JSON**. Select `Catalog.json` from the `PlayFab-JSON` folder of this recipe. The catalog contains the purchasable life items priced in Gems.
+  </Step>
+  <Step title="Upload the CloudScript">
+    Go to **Automation > Revisions**, select **Upload New Revision**, choose `CloudScript.js`, and select **Save as revision**.
+  </Step>
+</Steps>
+
+## The CloudScript
+
+The `Battle` handler contains all gameplay logic and relies on two helper functions for Virtual Currency operations.
+
+```javascript
+// Configuration constants
+var CHANCE_TO_DIE      = 0.3333; // ~33% chance to lose a life per battle
+var GEM_MAX            = 20;     // maximum Gems found per battle
+var GEM_MIN            = 10;     // minimum Gems found per battle
+var LIVES_CURRENCY_CODE = "LV";
+var GEMS_CURRENCY_CODE  = "GM";
+
+handlers.Battle = function(args) {
+  // Retrieve the player's inventory and VC balances
+  var inventoryResult = server.GetUserInventory({ "PlayFabId": currentPlayerId });
+  var userVcBalances  = inventoryResult.VirtualCurrency;
+  var userVcRecharge  = inventoryResult.VirtualCurrencyRechargeTimes;
+
+  // Enforce the life gate
+  try {
+    if (!CheckLives(userVcBalances)) {
+      throw "No lives remaining. Purchase additional lives or wait: "
+        + userVcRecharge[LIVES_CURRENCY_CODE].SecondsToRecharge + " seconds.";
+    }
+  } catch(ex) {
+    return JSON.stringify(ex);
+  }
+
+  // Award Gems
+  var gemsFound = Math.floor(Math.random() * (GEM_MAX - GEM_MIN + 1) + GEM_MIN);
+  AddVc(userVcBalances, GEMS_CURRENCY_CODE, gemsFound);
+
+  // Possibly deduct a Life
+  var rollOfFate = Math.floor(Math.random() * 10 + 1);
+  var lostALife  = rollOfFate <= Math.floor(10 * CHANCE_TO_DIE);
+  if (lostALife) {
+    SubtractVc(userVcBalances, LIVES_CURRENCY_CODE, 1);
+  }
+
+  return JSON.stringify({ gemsFound: gemsFound, lostALife: lostALife });
+};
+```
+
+<Accordion title="Helper functions">
+
+```javascript
+function CheckLives(vcBalances) {
+  return vcBalances != null
+    && vcBalances.hasOwnProperty(LIVES_CURRENCY_CODE)
+    && vcBalances[LIVES_CURRENCY_CODE] > 0;
+}
+
+function AddVc(vcBalances, code, qty) {
+  server.AddUserVirtualCurrency({
+    "PlayFabId": currentPlayerId,
+    "VirtualCurrency": code,
+    "Amount": qty
+  });
+}
+
+function SubtractVc(vcBalances, code, qty) {
+  server.SubtractUserVirtualCurrency({
+    "PlayFabId": currentPlayerId,
+    "VirtualCurrency": code,
+    "Amount": qty
+  });
+}
+```
+
+</Accordion>
+
+## Running the example
+
+<Tabs>
+  <Tab title="Unity 3D">
+    <Steps>
+      <Step title="Install the PlayFab Unity SDK">
+        Download the [PlayFab Unity 3D SDK](https://aka.ms/playfabunitysdkdownload) and import it into a new or existing Unity project.
+      </Step>
+      <Step title="Import the recipe package">
+        Import `RegeneratingCurrencyRecipe.unitypackage` from the `Example-Unity3d` folder (or download it from the PlayFab-Samples GitHub repo).
+      </Step>
+      <Step title="Open the scene">
+        In the **Project** window, open **Assets > PlayFab Recipes > RegeneratingCurrency > Scenes** and add the scene to your Hierarchy.
+      </Step>
+      <Step title="Set your title ID">
+        Select the **Main Camera**. In the **Inspector**, set **Play Fab Title Id** to your PlayFab title ID.
+      </Step>
+      <Step title="Run the scene">
+        Press **Play**. Call-by-call status updates are displayed in the console.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript">
+    <Steps>
+      <Step title="Copy the example folder">
+        Copy the `Example-JavaScript` folder from this recipe to your web server.
+      </Step>
+      <Step title="Open index.html">
+        Navigate to `index.html` in your browser.
+      </Step>
+      <Step title="Enter your title ID">
+        Type your PlayFab title ID. The example auto-generates a GUID as the player ID and stores it in `localStorage`.
+      </Step>
+      <Step title="Observe the console">
+        Open your browser's developer console for call-by-call status updates.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

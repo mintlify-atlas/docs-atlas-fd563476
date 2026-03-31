@@ -1,0 +1,123 @@
+---
+title: "Contributing"
+description: "Learn how to contribute samples, fixes, and improvements to the PlayFab Samples community library."
+---
+
+PlayFab Samples is a community-driven library of game developer resources. Contributions of all kinds are welcome — whether you're fixing a bug, improving documentation, or submitting an entirely new sample.
+
+<Note>
+  Have an idea for a sample but not ready to build it yourself? Email [devrel@playfab.com](mailto:devrel@playfab.com) and share what you'd like to see.
+</Note>
+
+## Ways to contribute
+
+<CardGroup cols={3}>
+  <Card title="Report a bug" icon="bug" href="https://github.com/Myst0gan1/PlayFab-Samples/issues">
+    Open an issue on GitHub describing the problem and steps to reproduce it
+  </Card>
+  <Card title="Request a feature" icon="lightbulb" href="https://github.com/Myst0gan1/PlayFab-Samples/issues">
+    Suggest a new sample or recipe via the issue tracker
+  </Card>
+  <Card title="Submit a pull request" icon="code-pull-request" href="https://github.com/Myst0gan1/PlayFab-Samples/pulls">
+    Contribute code fixes or new samples directly to the repository
+  </Card>
+</CardGroup>
+
+## Reporting bugs and requesting features
+
+Submit issues and feature requests through the [GitHub issue tracker](https://github.com/Myst0gan1/PlayFab-Samples/issues). Before opening a new issue:
+
+- Search the existing issues to confirm it hasn't already been reported
+- Provide a detailed description that includes:
+  - Which sample or samples are affected
+  - The steps required to reproduce the issue
+  - The expected and actual behavior
+  - The impact (data loss, security concerns, broken functionality, etc.)
+  - A minimal code snippet that reproduces the issue, if possible
+
+## Getting started
+
+<Steps>
+  <Step title="Fork the repository">
+    Fork [Myst0gan1/PlayFab-Samples](https://github.com/Myst0gan1/PlayFab-Samples) on GitHub to create your own copy.
+  </Step>
+  <Step title="Clone your fork">
+    Clone your fork to your local machine:
+
+    ```bash
+    git clone https://github.com/<your-username>/PlayFab-Samples.git
+    cd PlayFab-Samples
+    ```
+  </Step>
+  <Step title="Create a branch">
+    Create a new branch for your changes:
+
+    ```bash
+    git checkout -b feature/my-contribution
+    ```
+  </Step>
+  <Step title="Make your changes">
+    Implement your fix, improvement, or new sample. Follow the [sample requirements](#sample-and-recipe-requirements) below before committing.
+  </Step>
+  <Step title="Submit a pull request">
+    Push your branch to your fork and open a pull request against the `development` branch of the main repository.
+  </Step>
+</Steps>
+
+## Submitting a pull request
+
+Target the **`development` branch** when opening your pull request, not `master`. Write a detailed PR description that explains:
+
+- What problem the change solves or what it adds
+- Which sample or recipe is affected
+- Any configuration or setup steps a reviewer needs to know about
+
+<Note>
+  Not all pull requests will be approved. The team reviews submissions regularly and will update each PR with its status. Accepted PRs will receive guidance on next steps; rejected PRs will include an explanation of why.
+</Note>
+
+## Pull request checklist
+
+Before submitting, confirm that all of the following apply to your changes:
+
+<AccordionGroup>
+  <Accordion title="Code quality">
+    - New functionality is fully documented
+    - Any new functionality includes complete unit tests
+    - All existing unit tests pass
+  </Accordion>
+  <Accordion title="Commit hygiene">
+    - Commits are as small and focused as possible
+    - No unnecessary changes are included
+    - The branch does not require a rebase on top of unrelated work
+  </Accordion>
+  <Accordion title="Pull request description">
+    - The PR references the issue it fixes (e.g., `Fixes #123`)
+    - The description clearly lists the changes proposed in the pull request
+  </Accordion>
+</AccordionGroup>
+
+## Sample and recipe requirements
+
+A good sample or recipe should be immediately usable by another developer. When contributing one, include:
+
+- A `README.md` in the sample directory explaining what it demonstrates and how to run it
+- Working, tested code that follows PlayFab best practices
+- Clear setup instructions including any required Title ID configuration or Game Manager steps
+- All dependencies declared (NuGet packages, Unity version, Azure Functions runtime, etc.)
+
+<Tip>
+  Look at existing samples like [Tic Tac Toe](/samples/unity/tic-tac-toe) or recipes like [Prize Wheel](/recipes/prize-wheel) as a reference for structure and documentation style.
+</Tip>
+
+## Community feedback
+
+We're actively building out the library. If you have ideas for samples you'd like to see — even if you're not ready to build them — reach out at [devrel@playfab.com](mailto:devrel@playfab.com).
+
+## License
+
+All contributions to this repository are subject to the **MIT License**.
+
+<Note>
+  Versions of this repository prior to **V2.0.0** were licensed under **Apache-2.0**. Beginning with V2.0.0, all content is licensed under **MIT**. See [LICENSE](https://github.com/Myst0gan1/PlayFab-Samples/blob/master/LICENSE) for full details.
+</Note>

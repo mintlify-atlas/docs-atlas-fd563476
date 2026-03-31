@@ -1,0 +1,250 @@
+---
+title: "Messaging with SignalR"
+description: "Real-time messaging sample using SignalR, Azure Functions, and PlayFab — demonstrates push notifications, matchmaking, and in-match chat."
+---
+
+## Overview
+
+This sample demonstrates how to push real-time notifications to C# clients using [Azure SignalR Service](https://docs.microsoft.com/en-us/azure/azure-signalr/signalr-overview) combined with Azure Functions and PlayFab's Rules and Matchmaking systems.
+
+When a player logs in, a PlayFab Rule fires an Azure Function that broadcasts the login event to connected clients via SignalR. When two players enter a matchmaking queue and a match is found, a second Rule triggers a queue-based Azure Function that notifies both players through SignalR. Once matched, the players can exchange chat messages in real time.
+
+### What the sample demonstrates
+
+- Push notifications from PlayFab events to clients without polling
+- PlayFab Rules triggering Azure Functions on `player_logged_in` and `match_found` events
+- Azure Queue Functions as an event bridge between PlayFab and SignalR
+- A console C# client that connects to SignalR and participates in matchmaking and chat
+
+## Prerequisites
+
+- [Visual Studio 2019](https://www.visualstudio.com/downloads/) with Azure development workload enabled
+- An [Azure subscription](https://azure.microsoft.com/free/)
+- A [PlayFab account](https://developer.playfab.com/en-US/sign-up) with a title created for testing
+
+## Architecture
+
+```
+PlayFab client (C#)
+    │  ExecuteFunction / matchmaking API calls
+    ▼
+PlayFab (Rules engine + Matchmaking)
+    │  HTTP trigger          Queue trigger (matchfound)
+    ▼                            ▼
+Azure Functions ─────────────────────────
+    │  SignalR output binding
+    ▼
+Azure SignalR Service
+    │  WebSocket push
+    ▼
+C# client (MessagingClient)
+```
+
+| Component | Role |
+|---|---|
+| PlayFab | Authentication, Rules engine, Matchmaking queue |
+| Azure Functions | HTTP + Queue triggered functions; bridge between PlayFab and SignalR |
+| Azure SignalR Service | Manages WebSocket connections; delivers push messages to clients |
+| Azure Storage Queue | Carries `match_found` payloads from PlayFab to the `MatchFound` function |
+| MessagingClient | Console app that logs in, connects to SignalR, and joins matchmaking |
+
+## Azure setup
+
+<Steps>
+  <Step title="Create a SignalR Service instance">
+    Follow the [Azure SignalR Service quickstart](https://docs.microsoft.com/en-us/azure/azure-signalr/signalr-quickstart-azure-functions-csharp#create-an-azure-signalr-service-instance) to provision a new SignalR Service instance in the Azure Portal.
+  </Step>
+
+  <Step title="Create a Function App">
+    Create a new Function App as described in the [Azure Functions quickstart](https://docs.microsoft.com/en-us/azure/azure-functions/functions-create-first-azure-function#create-a-function-app).
+
+    <Note>
+      The Function App provisioning wizard requires you to create or select a Storage Account. Take note of this storage account — you will need its connection string in a later step.
+    </Note>
+  </Step>
+
+  <Step title="Create the matchfound queue">
+    1. Open the Azure Portal and navigate to the Storage Account associated with your Function App.
+    2. Under **Queue service**, click **Queues**.
+    3. Click **+** to add a new queue.
+    4. Name the queue exactly `matchfound` and click **OK**.
+
+    <Warning>
+      The queue name must be `matchfound` (all lowercase, no spaces). This name is registered in PlayFab as the queue trigger for the `MatchFound` function.
+    </Warning>
+  </Step>
+</Steps>
+
+## Configuration
+
+<Steps>
+  <Step title="Set the SignalR connection string">
+    1. In the Azure Portal, open your SignalR Service instance.
+    2. Navigate to **Settings → Keys**.
+    3. Copy the full **CONNECTION STRING** value.
+    4. Open `local.settings.json` in the `PlayFab.SignalRSample` project.
+    5. Replace the placeholder value for `AzureSignalRConnectionString` with the copied string.
+  </Step>
+
+  <Step title="Set the storage connection string">
+    1. In the Azure Portal, open the Storage Account associated with your Function App.
+    2. Navigate to **Settings → Access Keys**.
+    3. Copy the full **Connection String** value.
+    4. Open `local.settings.json` in the `PlayFab.SignalRSample` project.
+    5. Replace the placeholder value for `AzureWebJobsStorage` with the copied string.
+  </Step>
+
+  <Step title="Set the PlayFab Title ID">
+    1. Open the [PlayFab Game Manager](https://developer.playfab.com/) and select your title.
+    2. Copy the 4–5 hex digit **Title ID**.
+    3. Open `Program.cs` in the `MessagingClient` project.
+    4. Find the constant declaration and replace `XXXXX` with your Title ID:
+
+    ```csharp Program.cs
+    // Title Id from PlayFab. Set this depending on the title you're integrating with.
+    private const string TITLE_ID = "XXXXX";
+    ```
+  </Step>
+</Steps>
+
+## Azure configuration
+
+The connection strings you set locally must also be present in the Azure Portal so that the deployed Function App can use them.
+
+<Steps>
+  <Step title="Copy settings to Application Settings">
+    1. In the Azure Portal, open your Function App.
+    2. Click **Configuration** under the Settings section.
+    3. Under **Application settings**, click **New application setting**.
+    4. Add `AzureSignalRConnectionString` with the same value you set locally.
+    5. Repeat for `AzureWebJobsStorage`.
+    6. Click **Save**.
+  </Step>
+</Steps>
+
+## Build and publish
+
+<Steps>
+  <Step title="Import the publish profile">
+    1. In the Azure Portal, open your Function App and click **Get publish profile**. Save the `.PublishSettings` file locally.
+    2. In Visual Studio, right-click the `PlayFab.SignalRSample` project and choose **Publish...**.
+    3. Click **Start**, then **Import Profile...** in the bottom left.
+    4. Select the `.PublishSettings` file you downloaded.
+  </Step>
+
+  <Step title="Build and publish the Function App">
+    1. Build the `PlayFab.SignalRSample` project. It will download the SignalR, WebJobs, and PlayFab NuGet packages automatically.
+    2. Verify the project builds successfully.
+    3. Publish the project using the imported publish profile.
+  </Step>
+</Steps>
+
+## PlayFab configuration
+
+### Get Azure Function URLs
+
+Before configuring PlayFab, collect the invokable URLs for the HTTP-triggered functions:
+
+1. Open the Azure Portal and navigate to your Function App.
+2. For each HTTP function (`GetSignalRConnection`, `PlayerLogin`, `SendChatMessage`), click **Get Function URL** and copy it.
+
+<Note>
+  `MatchFound` does not have an HTTP URL — it is triggered by the Azure Storage Queue, not by HTTP.
+</Note>
+
+Also copy the Storage Account **Connection String** from **Settings → Access Keys** in the portal. You will need it when registering the queue function.
+
+### Register functions and configure rules
+
+<Steps>
+  <Step title="Register HTTP Azure Functions">
+    In PlayFab Game Manager, go to **Automation → Cloud Script → Functions** and register three HTTP functions:
+
+    | Function name | Trigger type | URL |
+    |---|---|---|
+    | `GetSignalRConnection` | HTTP | Copied URL |
+    | `PlayerLogin` | HTTP | Copied URL |
+    | `SendChatMessage` | HTTP | Copied URL |
+
+    For each: click **Register Function**, select **HTTP** as the trigger type, enter the name, paste the URL, and save.
+  </Step>
+
+  <Step title="Register the MatchFound queue function">
+    Register the queue-triggered function:
+
+    1. Click **Register Function**.
+    2. Select **Queue** as the trigger type.
+    3. Enter `MatchFound` as the function name.
+    4. Enter `matchfound` as the queue name.
+    5. Paste the Storage Account connection string.
+    6. Save the function.
+  </Step>
+
+  <Step title="Create Rules">
+    Go to **Automation → Rules** and create two rules:
+
+    **Rule 1 — Broadcast Friend Login**
+
+    | Field | Value |
+    |---|---|
+    | Name | `Broadcast Friend Login` |
+    | Event type | `com.playfab.player_logged_in` |
+    | Action type | Execute Azure Function |
+    | Function | `PlayerLogin` |
+
+    **Rule 2 — Matchmaking Notifications**
+
+    | Field | Value |
+    |---|---|
+    | Name | `Matchmaking Notifications` |
+    | Event type | `playfab.matchmaking.match_found` |
+    | Action type | Execute Azure Function |
+    | Function | `MatchFound` |
+  </Step>
+
+  <Step title="Create the matchmaking queue">
+    Go to **Multiplayer → Matchmaking** and click **New Queue**:
+
+    | Setting | Value |
+    |---|---|
+    | Queue name | `nr_simple` |
+    | Min match size | `2` |
+    | Max match size | `2` |
+
+    Save the queue.
+  </Step>
+</Steps>
+
+## Running the sample
+
+Build the `MessagingClient` project and launch two or more instances of the executable (find the local `.exe` after building). Each instance will:
+
+1. Log in to PlayFab using a unique ID derived from the local machine name.
+2. Establish a SignalR WebSocket connection by calling `GetSignalRConnection`.
+3. Join the `nr_simple` matchmaking queue.
+4. Receive a real-time notification via SignalR when a match is found.
+5. Enter a chat channel with the matched player.
+6. Send and receive chat messages via `SendChatMessage`.
+
+While waiting for a match, each client displays real-time login notifications whenever another instance logs in — this is driven by the `Broadcast Friend Login` rule.
+
+To exit the chat session, send an empty line (press Enter without typing a message).
+
+## Important notes
+
+<Warning>
+  The Function App will spin down when idle. First-run requests after a period of inactivity may time out while the app cold-starts. Upgrade to the [Azure Functions Premium plan](https://docs.microsoft.com/en-us/azure/azure-functions/functions-premium-plan) to keep the app warm and avoid cold-start delays.
+</Warning>
+
+<Note>
+  If more than two instances are running simultaneously, PlayFab may form multiple separate 2-player matches rather than one group match. Each pair of matched players gets its own isolated chat channel.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Tic Tac Toe Azure Functions" icon="function-square" href="/samples/csharp/tic-tac-toe-functions">
+    Another C# Azure Functions sample — game logic for the Tic Tac Toe Unity game.
+  </Card>
+  <Card title="Samples overview" icon="grid-2x2" href="/introduction">
+    Browse all PlayFab samples.
+  </Card>
+</CardGroup>

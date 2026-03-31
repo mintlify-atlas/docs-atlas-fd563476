@@ -1,0 +1,72 @@
+---
+title: "PlayFab Samples"
+description: "Sample code, recipes, and tutorials demonstrating how to integrate PlayFab game services across Unity, C#, Android, and iOS platforms."
+---
+
+PlayFab Samples is a community-driven library of practical, working examples that show you how to integrate [PlayFab](https://playfab.com) features into your games. Whether you're building your first game or adding new features to an existing title, you'll find ready-to-run code for the patterns and mechanics you need most.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Set up your first PlayFab title and run a sample in minutes
+  </Card>
+  <Card title="Unity Samples" icon="unity" href="/samples/unity/sign-in">
+    Complete Unity projects covering authentication, leaderboards, events, and more
+  </Card>
+  <Card title="Azure Functions" icon="cloud" href="/samples/csharp/tic-tac-toe-functions">
+    Server-side game logic with PlayFab and Azure Functions integration
+  </Card>
+  <Card title="Recipes" icon="book" href="/recipes/overview">
+    Drop-in patterns for player retention, monetization, and user acquisition
+  </Card>
+</CardGroup>
+
+## What's included
+
+The repository is organized into three main areas:
+
+### Samples
+Complete, runnable projects targeting specific platforms and engines. Each sample demonstrates best-practice usage of one or more PlayFab features.
+
+| Sample | Platform | Features covered |
+|---|---|---|
+| [PlayFab Sign-In](/samples/unity/sign-in) | Unity | Authentication (email, guest) |
+| [Space Rumble](/samples/unity/space-rumble) | Unity | Accounts, leaderboards, CloudScript, events |
+| [Leaderboards](/samples/unity/leaderboards) | Unity | Statistics, leaderboard read/write |
+| [Events](/samples/unity/events) | Unity | Player, title, and character events |
+| [Commerce](/samples/unity/commerce) | Unity / Android | Virtual currency, catalog, in-app purchases |
+| [Tic Tac Toe](/samples/unity/tic-tac-toe) | Unity + Azure | Azure Functions, game state, AI logic |
+| [Messaging / SignalR](/samples/csharp/messaging-signalr) | C# | Real-time notifications, matchmaking |
+
+### Recipes
+Focused examples that implement a single common game mechanic using PlayFab building blocks. Each recipe ships with both a Unity 3D package and a JavaScript version.
+
+<CardGroup cols={2}>
+  <Card title="Daily Prize Wheel" icon="gift" href="/recipes/prize-wheel">
+    Randomized daily reward using virtual currency and drop tables
+  </Card>
+  <Card title="Progressive Rewards" icon="trophy" href="/recipes/progressive-rewards">
+    Escalating login-streak bonuses with CloudScript
+  </Card>
+  <Card title="Referral Codes" icon="users" href="/recipes/referral-codes">
+    Reward both the referrer and referee with a redeemable code flow
+  </Card>
+  <Card title="Regenerating Currency" icon="coins" href="/recipes/regenerating-currency">
+    Time-limited play mechanic that slowly refills over time
+  </Card>
+  <Card title="Cross Promotion" icon="arrow-right-arrow-left" href="/recipes/cross-promotion">
+    Reward players who participate in multiple of your titles
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before running any sample you need:
+
+- A free [PlayFab developer account](https://developer.playfab.com/en-US/sign-up)
+- A PlayFab **Title** (created in Game Manager) — note your **Title ID**
+
+Individual samples may also require Unity, Visual Studio, or an Azure subscription. See each sample's page for its specific requirements.
+
+<Note>
+  All samples use the **MIT license**. See [LICENSE](https://github.com/Myst0gan1/PlayFab-Samples/blob/master/LICENSE) for details.
+</Note>

@@ -1,80 +1,151 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get a PlayFab title running and play through the Sign-In sample in under 15 minutes."
 ---
 
-## Get started in three steps
+This guide takes you from zero to a working PlayFab authentication flow using the PlayFab Sign-In Unity sample — the simplest sample in the repository.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have the following:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- A free [PlayFab developer account](https://developer.playfab.com/en-US/sign-up)
+- **Unity 2018.3** or later (download from [unity.com](https://unity.com/download))
+- **Visual Studio 2017** (Update 15.7) or later with the **Game development with Unity** workload installed
+- **Git** installed and available on your PATH
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The PlayFab Sign-In sample targets Unity 2018.3+. Newer LTS versions of Unity are fully supported.
 </Note>
+
+## Step 1: Create a PlayFab title in Game Manager
+
+Every PlayFab integration is scoped to a **title**. You need a Title ID to connect any sample to the PlayFab backend.
+
+<Steps>
+  <Step title="Log in to Game Manager">
+    Go to [developer.playfab.com](https://developer.playfab.com) and sign in with your PlayFab account.
+  </Step>
+  <Step title="Create a new studio (first time only)">
+    If this is your first title, Game Manager prompts you to create a **Studio**. Enter a studio name (for example, your company or team name) and select **Create studio**.
+  </Step>
+  <Step title="Create a new title">
+    Inside your studio, select **New title**. Enter a title name such as `PlayFab Sign-In Sample`, then select **Create title**.
+  </Step>
+  <Step title="Copy your Title ID">
+    After the title is created, Game Manager opens the title dashboard. Your **Title ID** appears in the top-left corner beneath the title name — it is a short alphanumeric string such as `ABCD1`. Copy it; you will need it in a later step.
+  </Step>
+</Steps>
+
+## Step 2: Clone the repository
+
+<Steps>
+  <Step title="Open a terminal">
+    Open a terminal (or Git Bash on Windows) in the directory where you want to store the project.
+  </Step>
+  <Step title="Clone the repo">
+    Run the following command:
+
+    <CodeGroup>
+      ```bash HTTPS
+      git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+      ```
+
+      ```bash SSH
+      git clone git@github.com:Myst0gan1/PlayFab-Samples.git
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Step 3: Open the project in Unity
+
+<Steps>
+  <Step title="Launch Unity Hub">
+    Open **Unity Hub** and select **Open** (or **Add** on older versions).
+  </Step>
+  <Step title="Navigate to the sample folder">
+    Browse to the following path inside the cloned repository and select **Open**:
+
+    ```text
+    PlayFab-Samples/Samples/Unity/PlayFabSignIn
+    ```
+  </Step>
+  <Step title="Allow Unity to import the project">
+    Unity imports the project and its dependencies. This may take a few minutes on the first open. If Unity prompts you to upgrade the project to a newer version, select **Continue**.
+  </Step>
+</Steps>
+
+## Step 4: Configure your Title ID
+
+The sample needs your Title ID to communicate with the PlayFab backend.
+
+<Steps>
+  <Step title="Open the PlayFabSharedSettings asset">
+    In the Unity **Project** window, navigate to:
+
+    ```text
+    Assets/PlayFabSdk/Shared/Public/Resources/PlayFabSharedSettings.asset
+    ```
+
+    Select the file to open it in the **Inspector**.
+  </Step>
+  <Step title="Enter your Title ID">
+    In the Inspector, find the **Title Id** field and paste the Title ID you copied from Game Manager.
+  </Step>
+  <Step title="Save the project">
+    Press **Ctrl+S** (Windows) or **Cmd+S** (macOS) to save.
+  </Step>
+</Steps>
+
+<Note>
+  You can also set the Title ID using the **PlayFab Editor Extensions** panel inside Unity. Select **PlayFab** in the menu bar, then **Editor Extensions**, and enter your Title ID in the **Settings** tab.
+</Note>
+
+## Step 5: Run the scene
+
+<Steps>
+  <Step title="Open the main scene">
+    In the **Project** window, navigate to `Assets/Scenes` and double-click the main scene file to open it.
+  </Step>
+  <Step title="Press Play">
+    Select the **Play** button at the top of the Unity Editor.
+  </Step>
+  <Step title="Sign in">
+    The sample presents a sign-in dialog with three options:
+
+    - **Sign in with email and password** — use credentials from an existing PlayFab account linked to your title.
+    - **Create an account** — register a new email/password account. The sample silently authenticates via device ID first, then links the email/password to that account.
+    - **Sign in as guest** — authenticates silently using the device's unique identifier via `LoginWithCustomID` (on desktop) or the platform-native device ID API (on Android or iOS).
+
+    Enable **Remember me** to skip this dialog on subsequent runs.
+  </Step>
+  <Step title="Confirm a successful login">
+    After a successful sign-in, the screen transitions to a post-login view. You can select **Clear sign-in** to sign out, or **Clear remembered login** to remove stored credentials.
+
+    To verify the login server-side, open your title in Game Manager and select **Players** from the left navigation — the signed-in player should appear in the list.
+  </Step>
+</Steps>
+
+<Tip>
+  The sign-in logic lives in `Assets/Scripts/PlayFab/PlayFabAuthService.cs`. It supports email/password, guest (silent), and account registration flows through a single `Authenticate(Authtypes)` entry point. The UI is handled separately in `Assets/Scripts/UI/LoginWindowView.cs`.
+</Tip>
+
+## What to try next
+
+Now that you have a working sign-in flow, explore more complex samples and recipes:
+
+<CardGroup cols={2}>
+  <Card title="PlayFab Sign-In (deep dive)" icon="key" href="/samples/unity/sign-in">
+    Full reference for the Sign-In sample, including the auth service architecture and UI wiring.
+  </Card>
+  <Card title="Space Rumble" icon="gamepad-2" href="/samples/unity/space-rumble">
+    A complete mini-game covering leaderboards, CloudScript, and player events on top of authentication.
+  </Card>
+  <Card title="Progressive Rewards" icon="trophy" href="/recipes/progressive-rewards">
+    Reward players for consecutive daily logins using CloudScript and Title Data.
+  </Card>
+  <Card title="Recipes overview" icon="book-open" href="/recipes/overview">
+    Browse all drop-in mechanics — prize wheels, referral codes, regenerating currency, and more.
+  </Card>
+</CardGroup>

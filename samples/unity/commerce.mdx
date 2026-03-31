@@ -1,0 +1,94 @@
+---
+title: "Commerce"
+description: "An Android Unity sample showing how to integrate Android in-app billing with PlayFab Economy to exchange real money for virtual items."
+---
+
+This sample demonstrates an in-app store that integrates Android's in-app billing API with the PlayFab client API. Players can spend a virtual currency (**TC**) to purchase virtual items, and replenish TC by making real-money purchases through Google Play.
+
+<Warning>
+Real-money purchases are processed through Google Play. If your account is not on the test licensing list, actual charges may be incurred. Contact the ATG Marketplace team to request test access before making purchases.
+</Warning>
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Android SDK level 21+" icon="android">
+    The app targets Android 5.0 (Lollipop) or above. It must be deployed to a device or AVD that supports **Google Play services** (not just Google API) because Google account sign-in is required.
+  </Card>
+  <Card title="Android Studio" icon="code">
+    Used to build and deploy the app to a compatible AVD or physical device.
+  </Card>
+  <Card title="PlayFab title" icon="key">
+    A PlayFab title configured with a virtual currency (TC) and a catalog of items.
+  </Card>
+  <Card title="Google Play account" icon="google">
+    A valid Google account is required to complete the sign-in and billing flows.
+  </Card>
+</CardGroup>
+
+<Note>
+Due to Android signing requirements, the billing flow on a locally-deployed debug build may return `responseCode 4` from `onPurchasesUpdated()`. This is expected behavior for unsigned builds.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Android Studio">
+    Navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/PlayFabCommerce
+    ```
+    Open the project in Android Studio.
+  </Step>
+  <Step title="Configure a compatible AVD">
+    Create an AVD with **API level 21 or higher** and select a system image that includes **Google Play services** (look for the Play Store icon in the AVD Manager).
+  </Step>
+  <Step title="Build and deploy">
+    Run the app from Android Studio onto the AVD or a physical Android device meeting the SDK requirements.
+  </Step>
+</Steps>
+
+## Using the sample
+
+After launch, sign in with a valid Google account. The store screen shows:
+
+- **Virtual items (TC price)** — items purchasable immediately with the TC virtual currency. Each new player starts with a seed amount of TC.
+- **Real-money items** — items whose price is displayed in real currency. Purchasing these triggers the Google Play billing flow to acquire more TC.
+- **Inventory** — items the player has already purchased are listed at the bottom. Selecting an inventory item decrements its quantity.
+
+## Code structure
+
+<AccordionGroup>
+  <Accordion title="PlayFabAuthManager">
+    A lightweight sign-in layer that handles authenticating with PlayFab across different platforms. It abstracts the platform-specific credential flow (Google Sign-In for Android) and produces a PlayFab session.
+  </Accordion>
+  <Accordion title="PlayFabCommerceManager">
+    The core commerce class. Responsibilities include:
+    - Fetching the item catalog from PlayFab
+    - Reading and updating player inventory
+    - Invoking Unity IAP for real-money purchase flows
+    - Awarding virtual currency (TC) upon successful purchase confirmation
+  </Accordion>
+</AccordionGroup>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="GetCatalogItems" icon="list">
+    Retrieves the list of items and their prices from the PlayFab catalog.
+  </Card>
+  <Card title="GetUserInventory" icon="box">
+    Reads the player's current inventory and virtual currency balances.
+  </Card>
+  <Card title="PurchaseItem" icon="cart-shopping">
+    Spends virtual currency (TC) to grant a catalog item to the player's inventory.
+  </Card>
+  <Card title="ValidateGooglePlayPurchase" icon="check">
+    Validates a real-money Google Play purchase receipt on the PlayFab server before awarding virtual currency, preventing fraudulent grants.
+  </Card>
+</CardGroup>

@@ -1,0 +1,202 @@
+---
+title: "Tic-Tac-Toe"
+description: "A Unity Tic-Tac-Toe game sample demonstrating PlayFab's Azure Functions integration for server-authoritative move validation and AI."
+---
+
+This sample is a complete Tic-Tac-Toe game built in Unity that demonstrates PlayFab's **Azure Functions** (Cloud Script v2) integration. All game logic — move validation, win checking, and AI move generation — runs as Azure Functions, making the game fully server-authoritative.
+
+<Note>
+This game requires the companion Azure Functions app to be deployed before the Unity project can run. See the [Tic-Tac-Toe Functions](/samples/csharp/tic-tac-toe-functions) sample for setup instructions.
+</Note>
+
+## Requirements
+
+<CardGroup cols={2}>
+  <Card title="Unity 2019.1.8f1+" icon="unity">
+    The project requires Unity 2019.1.8f1 or later.
+  </Card>
+  <Card title="PlayFab Unity Beta SDK" icon="sdk">
+    Included with the source code. The Azure Functions integration features are in beta and require the Beta SDK.
+  </Card>
+  <Card title="MK Glow Free plugin" icon="sparkles">
+    A free third-party shader plugin for visual effects, available on the Unity Asset Store.
+  </Card>
+  <Card title="Azure Functions app" icon="cloud">
+    The companion [Tic-Tac-Toe Functions](/samples/csharp/tic-tac-toe-functions) app must be deployed and registered in PlayFab before running the game.
+  </Card>
+</CardGroup>
+
+## PlayFab configuration
+
+### 1. Create a PlayFab title
+
+Create a new PlayFab title named **TicTacToe** in [Game Manager](https://developer.playfab.com). Note the **Title ID** — you will need to enter it in `Assets/Scripts/Constants.cs`.
+
+### 2. Enable Azure Functions integration
+
+In Game Manager, navigate to **Automation → Cloud Script → Functions** and enable the Azure Functions integration.
+
+### 3. Register your Azure Functions
+
+For each function in the Azure Functions app:
+
+1. Get the invokable URL from the Azure Portal (**Function → Get function URL**, key type: `default (Function key)`). URLs follow the format `[function-app-name].azurewebsites.net/api/[function-name]`.
+2. In Game Manager under **Automation → Cloud Script → Functions**, click **Register Function**.
+3. Enter the function name and paste the URL, then click **Register**.
+
+Register all functions found in the `/Functions` folder of the [Tic-Tac-Toe Functions](/samples/csharp/tic-tac-toe-functions) repository.
+
+<Note>
+Only the URL of a registered function can be edited after registration. The function name cannot be changed, so double-check names before registering.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Deploy the Azure Functions app">
+    Follow the setup guide in the [Tic-Tac-Toe Functions](/samples/csharp/tic-tac-toe-functions) sample to build and deploy the Azure Functions app, then complete the PlayFab configuration steps above.
+  </Step>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Myst0gan1/PlayFab-Samples.git
+    ```
+  </Step>
+  <Step title="Open the project in Unity">
+    In Unity Hub, click **Open** and navigate to:
+    ```
+    PlayFab-Samples/Samples/Unity/TicTacToe
+    ```
+  </Step>
+  <Step title="Add the PlayFab Unity Beta SDK">
+    Drag the `PlayFabSDK` folder from the Beta SDK repository's `Source/` directory into the game's `Assets/` folder via the **Unity Project View** (not the OS file browser). Unity will recompile and generate `.meta` files automatically.
+  </Step>
+  <Step title="Set the Title ID">
+    Open `Assets/Scripts/Constants.cs` and set `TITLE_ID` to the Title ID from your PlayFab title.
+
+    ```csharp Constants.cs
+    public class Constants
+    {
+        public const string TITLE_ID = "";        // Set this to your PlayFab Title ID
+        public const string CLOUD_NAME = "";      // Set if using a non-default cloud
+        public const bool COMPRESS_API_DATA = false;
+    }
+    ```
+  </Step>
+  <Step title="Open the main scene and play">
+    Open `Assets/Scenes/Main.unity`, then press **Play**. Log in when prompted and the game loop will begin.
+  </Step>
+</Steps>
+
+## Game flow
+
+Once the player is logged in, the game loop runs as follows:
+
+```
+Login
+  └── Player move
+        ├── Execute PlayerMove function (validate move server-side)
+        ├── If valid → place token
+        └── If invalid → prompt again
+              └── Win check (execute WinCheck function)
+                    ├── Player wins → game over
+                    └── No winner → AI move
+                          ├── Execute MakeAIMove function
+                          ├── If AI moves → place token
+                          └── If no space → skip AI turn
+                                └── Win check (AI win or draw)
+                                      └── Repeat from Player move
+```
+
+<Steps>
+  <Step title="Player move">
+    The player taps a cell. The client calls the `MakePlayerMove` Azure Function, submitting the chosen row and column. If the move is valid the token is placed; otherwise the player must choose again.
+  </Step>
+  <Step title="Win check after player move">
+    The `WinCheck` Azure Function evaluates the current board state. If the player has won, the game ends.
+  </Step>
+  <Step title="AI move">
+    The `MakeRandomAIMove` or `MakeMinimaxAIMove` Azure Function generates the AI's next move. If the AI cannot move (board full), its turn is skipped.
+  </Step>
+  <Step title="Win check after AI move">
+    `WinCheck` runs again. If the AI has won or the board is full with no winner, the game ends as a draw.
+  </Step>
+  <Step title="Repeat">
+    If the game is not over, control returns to step 1.
+  </Step>
+</Steps>
+
+## Code structure
+
+The game's code lives in `Assets/Scripts/` and is organized into the following files and folders.
+
+### Top-level files
+
+| File | Responsibility |
+|------|---------------|
+| `Game.cs` | Entry point. Manages the overall game lifecycle: player login, starting the game loop, detecting game-over conditions, and allowing the game to be restarted. |
+| `Board.cs` | `MonoBehaviour` attached to the physical board object in the scene. Holds three `TokenRow`s, each containing three `TokenPlaceholder`s representing the nine Tic-Tac-Toe cells. |
+| `Settings.cs` | Stores runtime configuration (Title ID, Azure Function URLs) and exposes it to the rest of the game. |
+| `Constants.cs` | Compile-time constants, including `TitleID`. |
+
+### /Handlers
+
+Request handlers that wrap PlayFab SDK calls using [Unity Coroutines](https://docs.unity3d.com/Manual/Coroutines.html), producing flat, readable async code without nested callbacks.
+
+| Handler | Azure Function called | Purpose |
+|---------|----------------------|---------|
+| `LoginHandler.cs` | — | Logs the player in via the PlayFab client SDK. |
+| `PlayerMoveHandler.cs` | `MakePlayerMove` | Submits a player move and receives a validity result. |
+| `WinCheckHandler.cs` | `WinCheck` | Submits the board state and receives a winner determination. |
+| `AIMoveHandler.cs` | `MakeAIMove` (registered name on PlayFab; backed by `MakeRandomAIMove` or `MakeMinimaxAIMove`) | Requests an AI move and receives the chosen cell. |
+| `ResetGameStateHandler.cs` | `ResetGameState` | Clears the server-side game state so a new game can start. |
+| `RequestHandler.cs` | — | Base class / utility shared by the other handlers. |
+
+### /Models
+
+Data structures used for serialization between the Unity client and the Azure Functions.
+
+| Model | Description |
+|-------|-------------|
+| `TicTacToeMove` | Represents a move with `row` and `col` fields (lower-cased to match Azure Functions default serialization). |
+| `MakeMoveRequest` | Request payload for player and AI move functions. |
+| `MakePlayerMoveResult` | Response from `MakePlayerMove`, indicating whether the move was valid. |
+| `MakeAIMoveResult` | Response from the AI move functions, containing the AI's chosen cell. |
+| `WinCheckResult` | Response from `WinCheck`, containing the `GameWinnerType`. |
+| `GameWinnerType` | Enum: `NONE`, `PLAYER`, `AI`, or `DRAW`. |
+| `OccupantType` | Enum representing a cell state: `NONE`, `HUMAN`, or `AI`. |
+| `TokenPlaceholder` | Model for a single board cell, tracking its `OccupantType`. |
+| `TokenRow` | Holds three `TokenPlaceholder`s forming one row of the board. |
+| `PlayerInfo` | Stores the player's PlayFab ID and display name. |
+| `ResetGameStateRequest` | Payload sent to `ResetGameState`. |
+
+<Warning>
+Azure Functions default serializer responds with lower-cased field names. Ensure all model fields shared between the client and Azure Functions use lower-case property names to avoid deserialization errors. See `TicTacToeMove` (`row`, `col`) as a reference.
+</Warning>
+
+## Key PlayFab features
+
+<CardGroup cols={2}>
+  <Card title="Azure Functions integration" icon="function">
+    Replaces traditional CloudScript with Azure Functions, enabling strongly-typed C# server logic with full IDE support and local debugging.
+  </Card>
+  <Card title="ExecuteFunction" icon="play">
+    The PlayFab client API call used to invoke a registered Azure Function from the Unity game. Passes a request payload and returns a typed response.
+  </Card>
+  <Card title="LoginWithCustomID" icon="fingerprint">
+    Authenticates the player anonymously for quick local testing without requiring account creation.
+  </Card>
+  <Card title="Server-authoritative game state" icon="shield">
+    Move validation, win detection, and AI logic all run on the server via Azure Functions, preventing client-side cheating.
+  </Card>
+</CardGroup>
+
+## Related samples
+
+<CardGroup cols={2}>
+  <Card title="Tic-Tac-Toe Functions" icon="cloud" href="/samples/csharp/tic-tac-toe-functions">
+    The companion Azure Functions app that provides the server-side game logic required by this Unity client.
+  </Card>
+  <Card title="Sign-in" icon="user" href="/samples/unity/sign-in">
+    A focused sample demonstrating the PlayFab authentication flows used as the login step in this game.
+  </Card>
+</CardGroup>
